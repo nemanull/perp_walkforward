@@ -1,0 +1,18 @@
+{
+  "name": "binance_data_combinator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "ts-node --transpile-only clean-datasets.ts",
+    "build": "ts-node --transpile-only main.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.20.0",
+  "dependencies": {
+    "ts-node": "^10.9.2"
+  }
+}
