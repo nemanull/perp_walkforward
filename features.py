@@ -36,7 +36,8 @@ def load_aligned(symbol: str = "HYPE") -> pd.DataFrame:
 
 
 def rolling_std(s: pd.Series, n: int) -> pd.Series:
-    return s.rolling(n).std()
+    # population std, the ts code divides by the window
+    return s.rolling(n).std(ddof=0)
 
 
 def zscore(s: pd.Series, n: int) -> pd.Series:
@@ -74,9 +75,49 @@ def asset_features(df: pd.DataFrame, p: str) -> pd.DataFrame:
     return out.add_prefix(f"{p}_")
 
 
+def cross_features(df: pd.DataFrame) -> pd.DataFrame:
+    close = {p: df[f"{p}_close"] for p in ["x", "btc", "eth", "sol"]}
+    logret = {p: np.log(c / (c.shift(1) + EPS)) for p, c in close.items()}
+
+    def trail(p: str, k: int) -> pd.Series:
+        return np.log(close[p] / (close[p].shift(k) + EPS))
+
+    out = pd.DataFrame(index=df.index)
+    for p, k in [("btc", 12), ("btc", 36), ("btc", 72), ("eth", 12), ("sol", 12)]:
+        out[f"x_minus_{p}_trail_ret_{k}"] = trail("x", k) - trail(p, k)
+    for p in ["btc", "eth", "sol"]:
+        cov = logret["x"].rolling(72).cov(logret[p], ddof=0)
+        out[f"corr_x_{p}_logret_72"] = cov / (rolling_std(logret["x"], 72) * rolling_std(logret[p], 72) + EPS)
+    for p in ["btc", "eth", "sol"]:
+        cov = logret["x"].rolling(288).cov(logret[p], ddof=0)
+        out[f"beta_x_{p}_288"] = cov / (rolling_std(logret[p], 288) ** 2 + EPS)
+    return out
+
+
+def targets(df: pd.DataFrame, horizons=(4, 12, 36, 72)) -> pd.DataFrame:
+    # no cost for now, x_cost was always 0 in the ts runs anyway
+    c = df["x_close"]
+    vol = rolling_std(np.log(c / (c.shift(1) + EPS)), 576)
+    out = pd.DataFrame(index=df.index)
+    for h in horizons:
+        fwd = np.log(c.shift(-h) / (c + EPS))
+        sigma = vol * np.sqrt(h)
+        out[f"x_fwd_logret_{h}"] = fwd
+        out[f"x_sigma_{h}"] = sigma
+        out[f"x_z_{h}"] = fwd / (sigma + EPS)
+        out[f"x_score_{h}"] = np.tanh(out[f"x_z_{h}"])
+    return out
+
+
+def build(symbol: str = "HYPE") -> pd.DataFrame:
+    df = load_aligned(symbol)
+    parts = [df] + [asset_features(df, p) for p in ["btc", "eth", "sol", "x"]]
+    parts += [cross_features(df), targets(df)]
+    return pd.concat(parts, axis=1)
+
+
 if __name__ == "__main__":
-    df = load_aligned("HYPE")
-    print(df.shape)
-    feats = pd.concat([asset_features(df, p) for p in ["btc", "eth", "sol", "x"]], axis=1)
-    print(feats.shape)
-    print(feats.describe().T)
+    out = build("HYPE")
+    print(out.shape)
+    Path("out").mkdir(exist_ok=True)
+    out.to_csv("out/HYPE.csv", index=False)
