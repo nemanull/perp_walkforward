@@ -26,6 +26,7 @@ def load_folder(folder: Path) -> pd.DataFrame:
 def load_aligned(symbol: str = "HYPE") -> pd.DataFrame:
     # same as alignCandlesByCloseTime in the ts code: keep the x bars
     # where btc, eth and sol all have a bar with the same close_time
+    # TODO shift() counts rows, not time. one missing bar and every lag after it is off
     x = load_folder(DATA / "TOKEN_X" / symbol / "5MIN")
     df = x[["open_time", "close_time"] + FIELDS].rename(columns={f: f"x_{f}" for f in FIELDS})
     for name, folder in CONTEXT.items():
