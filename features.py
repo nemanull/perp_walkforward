@@ -5,32 +5,34 @@ import pandas as pd
 
 EPS = 1e-12
 
-DATA = Path("Datasets")
-CONTEXT = {
-    "btc": DATA / "BTC" / "5MIN",
-    "eth": DATA / "ETH" / "5MIN",
-    "sol": DATA / "SOL" / "5MIN",
-}
+DATA = Path("data")
+CONTEXT = {"btc": "BTCUSDT", "eth": "ETHUSDT", "sol": "SOLUSDT"}
 FIELDS = [
     "open", "high", "low", "close", "volume", "quote_volume", "count",
     "taker_buy_volume", "taker_buy_quote_volume",
 ]
 
 
-def load_folder(folder: Path) -> pd.DataFrame:
-    files = sorted(folder.rglob("*.csv"))
+def load_pair(pair: str) -> pd.DataFrame:
+    files = sorted((DATA / pair).glob("*.csv"))
     df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
-    return df.sort_values("close_time").reset_index(drop=True)
+    n = len(df)
+    df = df.drop_duplicates("open_time").sort_values("open_time").reset_index(drop=True)
+    step = df["open_time"].diff()
+    missing = int((step[step > 300_000] // 300_000 - 1).sum())
+    zero = int((df["count"] == 0).sum())
+    print(pair, len(df), "bars,", n - len(df), "duplicates,", missing, "missing,", zero, "with no trades")
+    return df
 
 
 def load_aligned(symbol: str = "HYPE") -> pd.DataFrame:
     # same as alignCandlesByCloseTime in the ts code: keep the x bars
     # where btc, eth and sol all have a bar with the same close_time
     # TODO shift() counts rows, not time. one missing bar and every lag after it is off
-    x = load_folder(DATA / "TOKEN_X" / symbol / "5MIN")
+    x = load_pair(f"{symbol}USDT")
     df = x[["open_time", "close_time"] + FIELDS].rename(columns={f: f"x_{f}" for f in FIELDS})
-    for name, folder in CONTEXT.items():
-        other = load_folder(folder)[["close_time"] + FIELDS]
+    for name, pair in CONTEXT.items():
+        other = load_pair(pair)[["close_time"] + FIELDS]
         other = other.rename(columns={f: f"{name}_{f}" for f in FIELDS})
         df = df.merge(other, on="close_time", how="inner")
     return df
