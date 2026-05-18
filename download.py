@@ -3,9 +3,12 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import pandas as pd
+
 URL = "https://data.binance.vision/data/futures/um/monthly/klines/{pair}/5m/{pair}-5m-{month}.zip"
-PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT"]
-MONTHS = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04"]
+# no PUMPUSDT: the ticker was reused, the new token starts 2025-07-10 about 9x lower (a fake -89% bar)
+PAIRS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT", "DOGEUSDT"]
+MONTHS = [str(m) for m in pd.period_range("2025-07", "2026-04", freq="M")]
 
 
 def download(pair: str, month: str) -> None:

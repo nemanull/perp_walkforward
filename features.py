@@ -20,8 +20,11 @@ def load_pair(pair: str) -> pd.DataFrame:
     df = df.drop_duplicates("open_time").sort_values("open_time").reset_index(drop=True)
     step = df["open_time"].diff()
     missing = int((step[step > 300_000] // 300_000 - 1).sum())
+    # no trades = the 2025-08-29 06:20-06:30 halt, same bars on every pair. kept for now
     zero = int((df["count"] == 0).sum())
-    print(pair, len(df), "bars,", n - len(df), "duplicates,", missing, "missing,", zero, "with no trades")
+    move = np.log(df["close"]).diff().abs().max()
+    print(pair, len(df), "bars,", n - len(df), "duplicates,", missing, "missing,", zero, "with no trades,",
+          "max 1-bar move", round(move, 3))
     return df
 
 
