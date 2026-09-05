@@ -1,7 +1,7 @@
 [project]
-name = "perp-walkforward"
+name = "walkforward"
 version = "0.1.0"
-description = "Add your description here"
+description = "Monthly walk-forward evaluation of short-horizon return models on five Binance perpetuals"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -11,3 +11,10 @@ dependencies = [
     "scikit-learn>=1.8.0",
     "scipy>=1.17.0",
 ]
+
+[project.scripts]
+walkforward = "walkforward.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.25,<0.12.0"]
+build-backend = "uv_build"
