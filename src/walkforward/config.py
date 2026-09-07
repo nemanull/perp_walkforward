@@ -17,4 +17,6 @@ FIRST_BAR = {"hype": "2025-05-30 10:30"}  # a reused ticker gets an entry here t
 GRID_START = FIRST_BAR["hype"]
 DOWNLOAD_MONTHS = ("2025-05", "2026-08")
 
+HORIZONS = (4, 12, 36, 72)
+
 SEED = 7

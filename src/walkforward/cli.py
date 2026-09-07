@@ -2,7 +2,7 @@ import argparse
 import logging
 
 from walkforward import config
-from walkforward.data import bars, download
+from walkforward.data import bars, download, features
 
 
 def main() -> None:
@@ -12,7 +12,7 @@ def main() -> None:
     fetch.add_argument("--from", dest="start", default=config.DOWNLOAD_MONTHS[0])
     fetch.add_argument("--to", dest="end", default=config.DOWNLOAD_MONTHS[1])
     fetch.add_argument("--force", action="store_true")
-    commands.add_parser("build", help="align bars on one grid")
+    commands.add_parser("build", help="align bars and compute features")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -22,3 +22,4 @@ def main() -> None:
         download.download_all(args.start, args.end, args.force)
     elif args.command == "build":
         bars.build()
+        features.build()
