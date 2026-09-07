@@ -14,4 +14,7 @@ CONTEXT = {"btc": "BTCUSDT", "eth": "ETHUSDT", "sol": "SOLUSDT"}
 PAIRS = TARGETS | CONTEXT
 FIRST_BAR = {"hype": "2025-05-30 10:30"}  # a reused ticker gets an entry here too
 
+GRID_START = FIRST_BAR["hype"]
 DOWNLOAD_MONTHS = ("2025-05", "2026-08")
+
+SEED = 7

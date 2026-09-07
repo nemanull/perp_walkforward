@@ -9,6 +9,8 @@ It runs one method on five Binance USD-M perpetuals, HYPE, TRX, DOGE, UNI and AA
 ```
 uv sync
 uv run walkforward download --from 2025-05 --to 2026-08
+uv run walkforward build
+uv run pytest -q
 ```
 
-The download goes to `data/`, which is not committed.
+The download and the built data go to `data/`, which is not committed.
