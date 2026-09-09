@@ -3,6 +3,7 @@
 This project tests whether 5-minute data can predict short-horizon returns of crypto perpetual futures, with each model retrained every month on everything before that month and scored only on that month.
 
 It runs one method on five Binance USD-M perpetuals, HYPE, TRX, DOGE, UNI and AAVE, with BTC, ETH and SOL as context.
+The protocol is in [docs/paper.md](./docs/paper.md).
 
 ## Running it
 
