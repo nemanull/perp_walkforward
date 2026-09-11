@@ -9,3 +9,11 @@ def utc(text: str) -> pd.Timestamp:
 
 def bar_index(bars: int, start: str = "2025-12-01") -> pd.DatetimeIndex:
     return pd.date_range(start, periods=bars, freq=BAR, tz="UTC", name="open_time")
+
+
+def bars_between(start: str, end: str) -> pd.DatetimeIndex:
+    return pd.date_range(start, end, freq=BAR, inclusive="left", tz="UTC", name="open_time")
+
+
+def day_index(days: int, start: str = "2025-12-01") -> pd.DatetimeIndex:
+    return pd.date_range(start, periods=days, freq="D", tz="UTC", name="day")

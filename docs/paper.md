@@ -262,6 +262,13 @@ The pooled daily value of a configuration is the mean of the five coins' daily v
 The pooled bootstrap resamples whole days, so the five coins of a day stay together and their correlation is kept.
 Pooled evidence decides every choice that applies to all five coins.
 
+The obvious alternative, a Spearman correlation inside each day, is biased.
+Inside a day of $n = 288$ bars, the trailing and the forward $H$-bar returns share increments with the day's mean.
+Removing that mean gives an expected correlation of about $-H/n$ for any prediction built from recent returns, even on a random walk.
+At 6 hours that is $-0.25$, and a mean-reversion rule would show a t-statistic near 12 over 182 days with no signal at all.
+Ranking over the whole period shrinks the bias to about $-H/N$, with $N$ between 26,000 and 52,000 rows.
+A test runs both versions on simulated random walks.
+
 Besides the IC the study reports the following.
 
 - Hit rate is the share of bars where the side taken by the median rule of section 4.6 matches the sign of $r_{t,H}$, leaving out bars with no move and bars where the rule is flat.

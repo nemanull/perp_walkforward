@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 EPS = 1e-12
 SCHEMA_ASSETS = (*CONTEXT, "x")
-INPUT_ASSETS = ("x", *CONTEXT)
+INPUT_ASSETS = ("x", *CONTEXT)  # own inputs first, so best_feature ties go to the coin
 
 PRICE = (
     "logret_1",
