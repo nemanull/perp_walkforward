@@ -11,7 +11,9 @@ The protocol is in [docs/paper.md](./docs/paper.md).
 uv sync
 uv run walkforward download --from 2025-05 --to 2026-08
 uv run walkforward build
+uv run walkforward run audit
 uv run pytest -q
 ```
 
 The download and the built data go to `data/`, which is not committed.
+`run` writes tables and figures to `results/<experiment>/`, and `plot <experiment>` redraws the figures from the tables.

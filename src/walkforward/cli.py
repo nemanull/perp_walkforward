@@ -1,8 +1,11 @@
 import argparse
 import logging
 
-from walkforward import config
+from walkforward import config, plots
 from walkforward.data import bars, download, features
+from walkforward.experiments import phase1
+
+EXPERIMENTS = phase1.EXPERIMENTS
 
 
 def main() -> None:
@@ -13,6 +16,10 @@ def main() -> None:
     fetch.add_argument("--to", dest="end", default=config.DOWNLOAD_MONTHS[1])
     fetch.add_argument("--force", action="store_true")
     commands.add_parser("build", help="align bars and compute features")
+    run = commands.add_parser("run", help="run experiments and draw their figures")
+    run.add_argument("experiments", nargs="+", choices=list(EXPERIMENTS))
+    plot = commands.add_parser("plot", help="redraw the figures of one experiment")
+    plot.add_argument("experiment", choices=list(EXPERIMENTS))
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -23,3 +30,9 @@ def main() -> None:
     elif args.command == "build":
         bars.build()
         features.build()
+    elif args.command == "run":
+        for experiment in args.experiments:
+            EXPERIMENTS[experiment]()
+            plots.render(experiment)
+    else:
+        plots.render(args.experiment)
