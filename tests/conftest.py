@@ -1,3 +1,5 @@
+import itertools
+
 import pandas as pd
 
 from walkforward.data.bars import BAR
@@ -17,3 +19,7 @@ def bars_between(start: str, end: str) -> pd.DatetimeIndex:
 
 def day_index(days: int, start: str = "2025-12-01") -> pd.DatetimeIndex:
     return pd.date_range(start, periods=days, freq="D", tz="UTC", name="day")
+
+
+def cross_join(**levels) -> pd.DataFrame:
+    return pd.DataFrame(list(itertools.product(*levels.values())), columns=list(levels))

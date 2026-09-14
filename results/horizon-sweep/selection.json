@@ -1,0 +1,33 @@
+{
+  "horizon": 4,
+  "family": "best_feature",
+  "detected": true,
+  "pooled_t": 8.030446,
+  "per_coin_best": {
+    "aave": {
+      "horizon": 4,
+      "family": "momentum",
+      "t": 6.282806
+    },
+    "doge": {
+      "horizon": 4,
+      "family": "momentum",
+      "t": 8.690657
+    },
+    "hype": {
+      "horizon": 4,
+      "family": "momentum",
+      "t": 4.488318
+    },
+    "trx": {
+      "horizon": 4,
+      "family": "lightgbm",
+      "t": 0.970105
+    },
+    "uni": {
+      "horizon": 4,
+      "family": "lightgbm",
+      "t": 8.011447
+    }
+  }
+}

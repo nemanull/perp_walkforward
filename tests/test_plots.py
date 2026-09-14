@@ -1,11 +1,15 @@
+import json
 from pathlib import Path
 
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import cross_join
 
-from walkforward.config import PAIRS, SEED, TARGETS
+from walkforward.config import HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
+from walkforward.data.bars import BARS_PER_DAY
+from walkforward.experiments.phase1 import FAMILIES
 from walkforward.plots import STYLE, render
 
 COINS = list(TARGETS)
@@ -16,6 +20,16 @@ FIGURES = {
         "lead_lag",
         "autocorrelation",
         "daily_volatility",
+    ),
+    "horizon-sweep": (
+        "ic_heatmap",
+        "pooled_ic",
+        "ic_by_month",
+        "deciles",
+        "model_agreement",
+        "prediction_correlation",
+        "daily_ic_correlation",
+        "detectability",
     ),
 }
 
@@ -34,6 +48,13 @@ def daily(
     table = pd.DataFrame(walk, columns=COINS)
     table.insert(0, "day", pd.date_range(start, periods=days, freq="D", tz="UTC"))
     return table
+
+
+def ic_columns(rng: np.random.Generator, frame: pd.DataFrame) -> pd.DataFrame:
+    frame["ic"] = rng.normal(0.01, 0.02, len(frame))
+    frame["se"] = rng.uniform(0.005, 0.015, len(frame))
+    frame["t"] = frame["ic"] / frame["se"]
+    return frame
 
 
 def write_audit(folder: Path, rng: np.random.Generator) -> None:
@@ -57,8 +78,47 @@ def write_audit(folder: Path, rng: np.random.Generator) -> None:
     volatility.to_csv(folder / "daily_volatility.csv", index=False)
 
 
+def write_horizon_sweep(folder: Path, rng: np.random.Generator) -> None:
+    configurations = ic_columns(rng, cross_join(coin=COINS, horizon=HORIZONS, family=FAMILIES))
+    for column in ("days", "hit_rate", "oos_r2", "gross", "funding", "turnover"):
+        configurations[column] = rng.uniform(0, 1, len(configurations))
+    configurations["breakeven_bps"] = rng.normal(1, 2, len(configurations))
+    configurations["detected"] = configurations["t"] >= 3.2
+    configurations.to_csv(folder / "configurations.csv", index=False)
+    pooled = ic_columns(rng, cross_join(horizon=HORIZONS, family=FAMILIES))
+    pooled["days"] = 182
+    pooled["breakeven_bps"] = rng.normal(1, 2, len(pooled))
+    pooled["detected"] = pooled["t"] >= 3
+    pooled.to_csv(folder / "pooled.csv", index=False)
+    by_month = cross_join(coin=COINS, horizon=HORIZONS, family=FAMILIES, month=RESEARCH_MONTHS)
+    by_month["ic"] = rng.normal(0.01, 0.03, len(by_month))
+    by_month.to_csv(folder / "ic_by_month.csv", index=False)
+    deciles = cross_join(
+        coin=COINS, horizon=HORIZONS, family=FAMILIES, month=RESEARCH_MONTHS, decile=range(1, 11)
+    )
+    deciles["mean_return"] = 2e-5 * (deciles["decile"] - 5.5) + rng.normal(0, 1e-4, len(deciles))
+    deciles.to_csv(folder / "deciles.csv", index=False)
+    agreement = cross_join(coin=COINS, horizon=HORIZONS)
+    agreement["ridge_lightgbm_spearman"] = rng.uniform(0.2, 0.8, len(agreement))
+    agreement.to_csv(folder / "model_agreement.csv", index=False)
+    for name in ("prediction_correlation", "daily_ic_correlation"):
+        correlation_matrix(rng, COINS, "coin").to_csv(folder / f"{name}.csv", index=False)
+    horizons = np.array(HORIZONS)
+    detectability = pd.DataFrame(
+        {"horizon": horizons, "detectable_ic": 3 * np.sqrt(horizons / BARS_PER_DAY) / np.sqrt(182)}
+    )
+    detectability["best_pooled_ic"] = rng.normal(0.02, 0.01, len(horizons))
+    for coin, sigma in zip(COINS, (36, 12, 30, 40, 34), strict=True):
+        detectability[f"needed_ic_{coin}"] = 10 / (1.755 * sigma * np.sqrt(horizons))
+    detectability.to_csv(folder / "detectability.csv", index=False)
+    selection = {"horizon": 12, "family": "ridge", "detected": False, "pooled_t": 2.4}
+    selection["per_coin_best"] = {c: {"horizon": 36, "family": "lightgbm", "t": 2.0} for c in COINS}
+    (folder / "selection.json").write_text(json.dumps(selection))
+
+
 WRITERS = {
     "audit": write_audit,
+    "horizon-sweep": write_horizon_sweep,
 }
 
 

@@ -12,6 +12,7 @@ uv sync
 uv run walkforward download --from 2025-05 --to 2026-08
 uv run walkforward build
 uv run walkforward run audit
+uv run walkforward run horizon-sweep
 uv run pytest -q
 ```
 
