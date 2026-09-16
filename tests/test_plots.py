@@ -9,7 +9,7 @@ from conftest import cross_join
 
 from walkforward.config import HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
 from walkforward.data.bars import BARS_PER_DAY
-from walkforward.experiments.phase1 import FAMILIES
+from walkforward.experiments.phase1 import FAMILIES, POLICIES
 from walkforward.plots import STYLE, render
 
 COINS = list(TARGETS)
@@ -31,6 +31,8 @@ FIGURES = {
         "daily_ic_correlation",
         "detectability",
     ),
+    "feature-sources": ("sources", "gain_vs_btc", "importance"),
+    "retraining": ("retraining", "decay"),
 }
 
 
@@ -116,9 +118,33 @@ def write_horizon_sweep(folder: Path, rng: np.random.Generator) -> None:
     (folder / "selection.json").write_text(json.dumps(selection))
 
 
+def write_feature_sources(folder: Path, rng: np.random.Generator) -> None:
+    sources = pd.DataFrame({"coin": COINS, "ic_all": rng.normal(0.02, 0.01, len(COINS))})
+    sources["ic_own"] = sources["ic_all"] + rng.normal(0.003, 0.004, len(COINS))
+    sources["gain"] = sources["ic_all"] - sources["ic_own"]
+    sources["gain_t"] = sources["gain"] / 0.003
+    sources["btc_correlation"] = rng.uniform(0.4, 0.9, len(COINS))
+    sources.to_csv(folder / "sources.csv", index=False)
+    importance = cross_join(coin=COINS, group=("x", "btc", "eth", "sol"))
+    importance["ic_drop"] = rng.normal(0.004, 0.004, len(importance))
+    importance.to_csv(folder / "importance.csv", index=False)
+    (folder / "sources.json").write_text(json.dumps({"family": "ridge", "inputs": "all"}))
+
+
+def write_retraining(folder: Path, rng: np.random.Generator) -> None:
+    retraining = ic_columns(rng, cross_join(coin=COINS, policy=POLICIES))
+    retraining.to_csv(folder / "retraining.csv", index=False)
+    by_month = cross_join(coin=COINS, policy=POLICIES, month=RESEARCH_MONTHS)
+    by_month["research_month"] = by_month["month"].map(RESEARCH_MONTHS.index) + 1
+    by_month["ic"] = rng.normal(0.02, 0.02, len(by_month)) - 0.003 * by_month["research_month"]
+    by_month.to_csv(folder / "retraining_by_month.csv", index=False)
+
+
 WRITERS = {
     "audit": write_audit,
     "horizon-sweep": write_horizon_sweep,
+    "feature-sources": write_feature_sources,
+    "retraining": write_retraining,
 }
 
 

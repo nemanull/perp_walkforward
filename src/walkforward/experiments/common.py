@@ -25,7 +25,7 @@ from walkforward.config import (
     TRAIN_START,
 )
 from walkforward.data.bars import BAR
-from walkforward.data.features import MODEL_INPUTS
+from walkforward.data.features import MODEL_INPUTS, OWN_INPUTS
 from walkforward.folds import predict_out_of_sample, within
 from walkforward.metrics import daily_rank_ic, ic_by_month
 from walkforward.models import FITTERS
@@ -34,8 +34,9 @@ log = logging.getLogger(__name__)
 
 PERIODS = {"research": (RESEARCH_MONTHS, RESEARCH_END), "forward": (FORWARD_MONTHS, FORWARD_END)}
 FIRST_WINDOW = (TRAIN_START, RESEARCH_MONTHS[0])
-INPUT_SETS = {"all": MODEL_INPUTS}
+INPUT_SETS = {"all": MODEL_INPUTS, "own": OWN_INPUTS}
 THRESHOLDS = {"median": ("q50", "q50"), "outer30": ("q30", "q70"), "outer10": ("q10", "q90")}
+ONE_INPUT_FAMILIES = ("momentum", "best_feature")
 
 
 def utc(text: str) -> pd.Timestamp:
@@ -132,6 +133,10 @@ def predictions(
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(path)
     return frame
+
+
+def fitted_family(family: str) -> str:
+    return "ridge" if family in ONE_INPUT_FAMILIES else family
 
 
 def centred_signal(frame: pd.DataFrame, column: str = "pred") -> pd.Series:

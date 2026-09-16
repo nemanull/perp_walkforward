@@ -35,6 +35,7 @@ GREY = "#767676"
 LIGHT_GREY = "#ababab"
 GRID = "#e5e5e5"
 NEUTRALS = (TEXT, GREY, LIGHT_GREY)
+MARKERS = ("o", "s", "D")
 DIVERGING = LinearSegmentedColormap.from_list("diverging", ["#ec7f7e", "#f4f4f2", "#6fa6e6"])
 
 STYLE = {
@@ -182,6 +183,47 @@ def colour_scale(figure: Figure, image: AxesImage, axes: Axes | list[Axes], labe
 
 def ic_text(ic: pd.DataFrame, t: pd.DataFrame) -> pd.DataFrame:
     return ic.map("{:.3f}".format) + "\nt " + t.map("{:.1f}".format)
+
+
+def plot_scatter(
+    ax: Axes,
+    x: pd.Series,
+    y: pd.Series,
+    coins: pd.Series,
+    labels: list[str] | None = None,
+    offsets: dict[str, tuple[int, int]] | None = None,
+) -> None:
+    ax.scatter(x, y, s=40, c=[COIN_COLOURS[coin] for coin in coins], zorder=3)
+    labels = labels or [display_name(coin) for coin in coins]
+    offsets = offsets or {}
+    for point, coin, label in zip(zip(x, y, strict=True), coins, labels, strict=True):
+        dx, dy = offsets.get(coin, (6, 4))
+        ha = "left" if dx > 0 else "right" if dx < 0 else "center"
+        ax.annotate(label, point, xytext=(dx, dy), textcoords="offset points", ha=ha, fontsize=8)
+
+
+def diagonal(ax: Axes, values: pd.DataFrame, label: str) -> None:
+    low, high = values.min().min(), values.max().max()
+    pad = 0.15 * (high - low)
+    low, high = low - pad, high + pad
+    ax.set_xlim(low, high)
+    ax.set_ylim(low, high)
+    ax.set_aspect("equal")
+    ax.locator_params(nbins=5)
+    ax.grid(True, axis="both")
+    ax.axline((low, low), slope=1, color=GREY, linestyle="--", linewidth=1, zorder=1)
+    ax.annotate(
+        label,
+        (high, high),
+        xytext=(-10, -10),
+        textcoords="offset points",
+        rotation=45,
+        rotation_mode="anchor",
+        ha="right",
+        va="top",
+        color=GREY,
+        fontsize=8,
+    )
 
 
 def plot_correlation(table: pd.DataFrame, title: str, label: str) -> Figure:
@@ -344,6 +386,81 @@ def plot_detectability(table: pd.DataFrame) -> Figure:
     return figure
 
 
+def plot_sources(table: pd.DataFrame) -> Figure:
+    figure, ax = single_plot("Rank IC with all inputs against own inputs only", (6, 5))
+    diagonal(ax, table[["ic_own", "ic_all"]], "no gain")
+    ax.set_xlabel("rank IC, own inputs only")
+    ax.set_ylabel("rank IC, all inputs")
+    plot_scatter(ax, table["ic_own"], table["ic_all"], table["coin"])
+    return figure
+
+
+def plot_gain_vs_btc(table: pd.DataFrame) -> Figure:
+    figure, ax = single_plot("Gain from BTC, ETH and SOL inputs against correlation with BTC")
+    zero_line(ax)
+    ax.grid(True, axis="both")
+    ax.margins(0.2)
+    ax.set_xlabel("correlation of daily returns with BTC, first training window")
+    ax.set_ylabel("rank IC gain, all inputs minus own")
+    plot_scatter(ax, table["btc_correlation"], table["gain"], table["coin"])
+    return figure
+
+
+def plot_importance(table: pd.DataFrame) -> Figure:
+    coins = table["coin"].unique()
+    title = "Drop in rank IC when one input group is shuffled, research months"
+    figure, axes = small_multiples(len(coins), len(coins), (11, 3), title, sharex=True, sharey=True)
+    for ax, coin in zip(axes, coins, strict=True):
+        rows = table[table["coin"] == coin]
+        groups = rows["group"].replace({"x": "own"}).map(display_name)
+        ax.barh(groups, rows["ic_drop"], height=0.6, color=COIN_COLOURS[coin])
+        zero_line(ax, vertical=True)
+        ax.locator_params(axis="x", nbins=4)
+        ax.grid(True, axis="x")
+        ax.grid(False, axis="y")
+        ax.set_title(display_name(coin))
+    axes[0].invert_yaxis()
+    figure.supxlabel("drop in rank IC")
+    return figure
+
+
+def plot_retraining(table: pd.DataFrame) -> Figure:
+    coins = table["coin"].unique()
+    policies = table["policy"].unique()
+    positions = np.arange(len(coins))
+    offsets = np.linspace(-0.2, 0.2, len(policies))
+    figure, ax = single_plot("Rank IC by retraining policy, research months")
+    for offset, policy, colour, marker in zip(offsets, policies, NEUTRALS, MARKERS, strict=True):
+        rows = table[table["policy"] == policy].set_index("coin").loc[coins]
+        ax.errorbar(
+            positions + offset,
+            rows["ic"],
+            yerr=1.96 * rows["se"],
+            fmt=marker,
+            color=colour,
+            label=display_name(policy),
+        )
+    zero_line(ax)
+    ax.set_xticks(positions, [display_name(coin) for coin in coins])
+    ax.set_ylabel("rank IC, 1.96 se bars")
+    legend_beside(ax)
+    return figure
+
+
+def plot_decay(table: pd.DataFrame) -> Figure:
+    fixed = coin_table(table[table["policy"] == "fixed"], "research_month", "ic").T
+    expanding = table[table["policy"] == "expanding"].groupby("research_month")["ic"].mean()
+    figure, ax = single_plot("Rank IC of the never-refit model by research month")
+    coin_lines(ax, fixed, marker="o")
+    ax.plot(expanding.index, expanding, color=TEXT, linestyle="--", label="expanding,\ncoin mean")
+    zero_line(ax)
+    ax.set_xticks(expanding.index)
+    ax.set_xlabel("months since the fixed model was trained")
+    ax.set_ylabel("rank IC")
+    legend_beside(ax)
+    return figure
+
+
 def render_audit(folder: Path) -> None:
     draw(
         folder,
@@ -389,7 +506,20 @@ def render_horizon_sweep(folder: Path) -> None:
     draw(folder, "detectability.png", plot_detectability, "detectability.csv")
 
 
+def render_feature_sources(folder: Path) -> None:
+    draw(folder, "sources.png", plot_sources, "sources.csv")
+    draw(folder, "gain_vs_btc.png", plot_gain_vs_btc, "sources.csv")
+    draw(folder, "importance.png", plot_importance, "importance.csv")
+
+
+def render_retraining(folder: Path) -> None:
+    draw(folder, "retraining.png", plot_retraining, "retraining.csv")
+    draw(folder, "decay.png", plot_decay, "retraining_by_month.csv")
+
+
 RENDERERS = {
     "audit": render_audit,
     "horizon-sweep": render_horizon_sweep,
+    "feature-sources": render_feature_sources,
+    "retraining": render_retraining,
 }

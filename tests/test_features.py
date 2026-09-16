@@ -10,6 +10,7 @@ from walkforward.data.bars import BAR_FIELDS
 from walkforward.data.features import (
     EPS,
     FEATURES,
+    IMPORTANCE_GROUPS,
     MODEL_INPUTS,
     build,
     build_features,
@@ -192,9 +193,12 @@ def test_roll_mean_logret_is_trail_ret_over_w():
         )
 
 
-def test_feature_and_input_counts():
+def test_importance_groups_cover_inputs_once():
+    sizes = {group: len(columns) for group, columns in IMPORTANCE_GROUPS.items()}
+    assert sizes == {"x": 16, "btc": 21, "eth": 19, "sol": 19}
+    grouped = [column for columns in IMPORTANCE_GROUPS.values() for column in columns]
+    assert sorted(grouped) == sorted(MODEL_INPUTS)
     assert len(FEATURES) == 111
-    assert len(MODEL_INPUTS) == 75
 
 
 def test_build_writes_one_feature_file_per_target(tmp_path):

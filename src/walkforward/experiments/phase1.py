@@ -4,14 +4,33 @@ import itertools
 import numpy as np
 import pandas as pd
 
-from walkforward import backtest, config, metrics, models
-from walkforward.data import bars
+from walkforward import backtest, config, folds, metrics, models
+from walkforward.data import bars, features
 from walkforward.experiments import common
 
 log = logging.getLogger(__name__)
 
 FAMILIES = tuple(models.FITTERS)
+POLICIES = ("expanding", "fixed", "rolling_3m")
 TOP_DECILE_EDGE = 1.755
+
+
+def read_choice(experiment: str, name: str, key: str) -> str | int:
+    return common.read_json(config.RESULTS_DIR / experiment / name)[key]
+
+
+def frozen_recipe() -> tuple[int, str]:
+    selection = common.read_json(config.RESULTS_DIR / "horizon-sweep" / "selection.json")
+    return selection["horizon"], selection["family"]
+
+
+def predictions_by_coin(
+    horizon: int, family: str, inputs: str, policy: str, period: str = "research"
+) -> dict[str, pd.DataFrame]:
+    return {
+        coin: common.predictions(coin, horizon, family, inputs, policy, period)
+        for coin in config.TARGETS
+    }
 
 
 def five_minute_log_returns(start: str, end: str) -> pd.DataFrame:
@@ -248,7 +267,128 @@ def run_horizon_sweep() -> None:
     log.info("frozen recipe H=%d %s, detected=%s", horizon, family, detected)
 
 
+def permutation_importance(
+    coin: str, horizon: int, family: str, inputs: list[str]
+) -> dict[str, float]:
+    frame = common.load_features(coin)
+    rng = np.random.default_rng(config.SEED)
+    base, shuffled = [], {group: [] for group in features.IMPORTANCE_GROUPS}
+    for fold in folds.monthly_folds(config.RESEARCH_MONTHS):
+        rows = folds.split_fold(frame, fold, horizon, inputs)
+        model, thresholds, _, _ = folds.fit_window(rows, horizon, models.FITTERS[family], inputs)
+        test = rows.test
+        scored = pd.DataFrame(
+            {"fwd_logret": test[f"fwd_logret_{horizon}"], **thresholds}, index=test.index
+        )
+        base.append(scored.assign(pred=model.predict(test[inputs])))
+        for group, columns in features.IMPORTANCE_GROUPS.items():
+            permuted = test[inputs].copy()
+            permuted[columns] = test[columns].to_numpy()[rng.permutation(len(test))]
+            shuffled[group].append(scored.assign(pred=model.predict(permuted)))
+    base_ic = common.daily_ic(pd.concat(base)).mean()
+    return {
+        group: base_ic - common.daily_ic(pd.concat(parts)).mean()
+        for group, parts in shuffled.items()
+    }
+
+
+def btc_correlation(coin: str) -> float:
+    close = common.between(common.load_bars()[[f"{coin}_close", "btc_close"]], *common.FIRST_WINDOW)
+    daily = close.resample("1D").last().pct_change().dropna()
+    return daily[f"{coin}_close"].corr(daily["btc_close"])
+
+
+def sources_table(daily_all: dict, daily_own: dict) -> pd.DataFrame:
+    table = pd.DataFrame({"coin": list(config.TARGETS)})
+    table["ic_all"] = [daily_all[coin].mean() for coin in config.TARGETS]
+    table["ic_own"] = [daily_own[coin].mean() for coin in config.TARGETS]
+    gains = [metrics.paired_ic_difference(daily_all[c], daily_own[c]) for c in config.TARGETS]
+    table["gain"] = [gain["ic"] for gain in gains]
+    table["gain_t"] = [gain["t"] for gain in gains]
+    table["btc_correlation"] = [btc_correlation(coin) for coin in config.TARGETS]
+    return table
+
+
+def importance_table(horizon: int, family: str) -> pd.DataFrame:
+    drops = {
+        coin: pd.Series(permutation_importance(coin, horizon, family, features.MODEL_INPUTS))
+        for coin in config.TARGETS
+    }
+    return pd.concat(drops, names=["coin", "group"]).rename("ic_drop").reset_index()
+
+
+def choose_inputs(own_minus_all: dict) -> str:
+    return "own" if own_minus_all["t"] >= config.PAIRED_T else "all"
+
+
+def run_feature_sources() -> None:
+    out = common.output_dir("feature-sources")
+    horizon, family = frozen_recipe()
+    family = common.fitted_family(family)
+    everything = predictions_by_coin(horizon, family, "all", "expanding")
+    own = predictions_by_coin(horizon, family, "own", "expanding")
+    daily_all, daily_own = {}, {}
+    for coin in config.TARGETS:
+        shared = everything[coin].index.intersection(own[coin].index)
+        daily_all[coin] = common.daily_ic(everything[coin].loc[shared])
+        daily_own[coin] = common.daily_ic(own[coin].loc[shared])
+    own_minus_all = metrics.pooled_ic_difference(daily_own, daily_all)
+    choice = {"family": family, "inputs": choose_inputs(own_minus_all)}
+    choice |= {"own_minus_all": own_minus_all["ic"], "t": own_minus_all["t"]}
+
+    common.write_table(sources_table(daily_all, daily_own), out / "sources.csv")
+    common.write_table(importance_table(horizon, family), out / "importance.csv")
+    common.write_json(out / "sources.json", choice)
+    log.info("feature set %s, own minus all t=%.2f", choice["inputs"], choice["t"])
+
+
+def retraining_table(daily: dict) -> pd.DataFrame:
+    rows = []
+    for (coin, policy), series in daily.items():
+        summary = metrics.ic_summary(series)
+        rows.append({"coin": coin, "policy": policy} | {k: summary[k] for k in ("ic", "se", "t")})
+    return pd.DataFrame(rows)
+
+
+def retraining_by_month(daily: dict) -> pd.DataFrame:
+    table = common.ic_by_month_table(daily, ["coin", "policy"])
+    position = {month: number for number, month in enumerate(config.RESEARCH_MONTHS, 1)}
+    table.insert(3, "research_month", table["month"].map(position))
+    return table
+
+
+def choose_policy(challengers: dict[str, dict]) -> str:
+    winners = {policy: s["t"] for policy, s in challengers.items() if s["t"] >= config.PAIRED_T}
+    return max(winners, key=winners.get) if winners else "expanding"
+
+
+def run_retraining() -> None:
+    out = common.output_dir("retraining")
+    horizon, family = frozen_recipe()
+    inputs = read_choice("feature-sources", "sources.json", "inputs")
+    daily = {
+        (coin, policy): common.daily_ic(common.predictions(coin, horizon, family, inputs, policy))
+        for coin, policy in itertools.product(config.TARGETS, POLICIES)
+    }
+    expanding = common.by_coin(daily, "expanding")
+    challengers = {
+        policy: metrics.pooled_ic_difference(common.by_coin(daily, policy), expanding)
+        for policy in POLICIES[1:]
+    }
+    policy = choose_policy(challengers)
+
+    common.write_table(retraining_table(daily), out / "retraining.csv")
+    common.write_table(retraining_by_month(daily), out / "retraining_by_month.csv")
+    common.write_json(
+        out / "retraining.json",
+        {"policy": policy} | {f"{p}_minus_expanding_t": s["t"] for p, s in challengers.items()},
+    )
+    log.info("retraining policy %s", policy)
+
+
 EXPERIMENTS = {
     "audit": run_audit,
     "horizon-sweep": run_horizon_sweep,
+    "feature-sources": run_feature_sources,
+    "retraining": run_retraining,
 }

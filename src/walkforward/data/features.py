@@ -82,6 +82,11 @@ FEATURES = [
 MODEL_INPUTS = [
     f"{asset}_{name}" for asset in INPUT_ASSETS for name in PER_ASSET if name not in NOT_INPUTS
 ] + list(CROSS)
+OWN_INPUTS = [column for column in MODEL_INPUTS if column.startswith("x_") and column not in CROSS]
+IMPORTANCE_GROUPS = {"x": OWN_INPUTS} | {
+    asset: [c for c in MODEL_INPUTS if c.startswith(f"{asset}_") or f"_{asset}_" in c]
+    for asset in CONTEXT
+}
 
 
 def log_return(close: pd.Series, lag: int) -> pd.Series:

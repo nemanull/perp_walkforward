@@ -1,0 +1,5 @@
+{
+  "policy": "expanding",
+  "fixed_minus_expanding_t": -0.155779,
+  "rolling_3m_minus_expanding_t": -0.927572
+}
