@@ -7,9 +7,10 @@ import pandas as pd
 import pytest
 from conftest import cross_join
 
-from walkforward.config import HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
+from walkforward.config import FEES_BPS, HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
 from walkforward.data.bars import BARS_PER_DAY
-from walkforward.experiments.phase1 import FAMILIES, POLICIES
+from walkforward.experiments.common import THRESHOLDS
+from walkforward.experiments.phase1 import DELAYS, FAMILIES, POLICIES
 from walkforward.plots import STYLE, render
 
 COINS = list(TARGETS)
@@ -33,6 +34,7 @@ FIGURES = {
     ),
     "feature-sources": ("sources", "gain_vs_btc", "importance"),
     "retraining": ("retraining", "decay"),
+    "economics": ("breakeven", "pnl_correlation", "equity", "needed_ic"),
 }
 
 
@@ -140,11 +142,46 @@ def write_retraining(folder: Path, rng: np.random.Generator) -> None:
     by_month.to_csv(folder / "retraining_by_month.csv", index=False)
 
 
+def write_economics(folder: Path, rng: np.random.Generator) -> None:
+    economics = cross_join(coin=COINS, rule=THRESHOLDS, fee=FEES_BPS, delay=DELAYS)
+    for column in (
+        "gross_bps_day",
+        "net_bps_day",
+        "sharpe",
+        "sharpe_low",
+        "sharpe_high",
+        "max_drawdown",
+        "turnover_day",
+        "beta",
+        "buy_and_hold_bps_day",
+        "time_in_market",
+        "long_share",
+    ):
+        economics[column] = rng.normal(0, 1, len(economics))
+    economics["breakeven_bps"] = rng.normal(3, 2, len(economics)) - 1.5 * economics["delay"]
+    economics.to_csv(folder / "economics.csv", index=False)
+    correlation_matrix(rng, COINS, "coin").to_csv(folder / "pnl_correlation.csv", index=False)
+    curves = pd.DataFrame({"day": pd.date_range("2025-12-01", periods=182, freq="D", tz="UTC")})
+    for coin in COINS:
+        curves[f"{coin}_strategy"] = np.cumsum(rng.normal(2e-4, 0.006, 182))
+        curves[f"{coin}_buy_and_hold"] = np.cumsum(rng.normal(0, 0.04, 182))
+    curves["portfolio_strategy"] = curves.filter(like="_strategy").mean(axis=1)
+    curves.to_csv(folder / "equity.csv", index=False)
+    sigma = rng.uniform(30, 120, len(COINS))
+    needed = pd.DataFrame({"coin": COINS, "sigma_bps": sigma})
+    needed["needed_ic_taker"] = 10 / (1.755 * sigma)
+    needed["needed_ic_maker"] = 4 / (1.755 * sigma)
+    needed["research_ic"] = rng.normal(0.03, 0.02, len(COINS))
+    needed.to_csv(folder / "needed_ic.csv", index=False)
+    (folder / "economics.json").write_text(json.dumps({"rule": "outer30"}))
+
+
 WRITERS = {
     "audit": write_audit,
     "horizon-sweep": write_horizon_sweep,
     "feature-sources": write_feature_sources,
     "retraining": write_retraining,
+    "economics": write_economics,
 }
 
 

@@ -2,13 +2,16 @@ import numpy as np
 import pandas as pd
 from conftest import cross_join, day_index
 
-from walkforward.config import HORIZONS, PAIRED_T, POOLED_T, RESEARCH_MONTHS
+from walkforward.config import FEES_BPS, HORIZONS, PAIRED_T, POOLED_T, RESEARCH_MONTHS
+from walkforward.experiments.common import THRESHOLDS
 from walkforward.experiments.phase1 import (
+    DELAYS,
     FAMILIES,
     POLICIES,
     choose_inputs,
     choose_policy,
     choose_recipe,
+    choose_rule,
     retraining_by_month,
 )
 
@@ -42,6 +45,16 @@ def test_own_inputs_need_pooled_t_of_two():
 def test_expanding_stays_unless_a_challenger_reaches_t_two():
     assert choose_policy({"fixed": {"t": 1.9}, "rolling_3m": {"t": -3.0}}) == "expanding"
     assert choose_policy({"fixed": {"t": 2.1}, "rolling_3m": {"t": 2.6}}) == "rolling_3m"
+
+
+def test_rule_has_the_best_taker_sharpe_without_delay():
+    portfolio = cross_join(rule=THRESHOLDS, fee=FEES_BPS, delay=DELAYS)
+    portfolio["sharpe"] = -5.0
+    portfolio.loc[(portfolio["fee"] == "maker") & (portfolio["rule"] == "median"), "sharpe"] = 9.0
+    portfolio.loc[(portfolio["delay"] == 1) & (portfolio["rule"] == "outer30"), "sharpe"] = 9.0
+    best = (portfolio["fee"] == "taker") & (portfolio["delay"] == 0)
+    portfolio.loc[best & (portfolio["rule"] == "outer10"), "sharpe"] = -1.0
+    assert choose_rule(portfolio) == "outer10"
 
 
 def test_every_policy_gets_the_position_of_its_research_month():

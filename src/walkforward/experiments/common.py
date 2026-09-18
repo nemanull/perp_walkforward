@@ -7,7 +7,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from walkforward.backtest import signals
+from walkforward.backtest import (
+    beta_to_target,
+    breakeven_fee_bps,
+    buy_and_hold,
+    daily_pnl,
+    long_share,
+    max_drawdown,
+    sharpe,
+    sharpe_interval,
+    signals,
+    time_in_market,
+)
 from walkforward.config import (
     CRASH,
     DATA_DIR,
@@ -27,7 +38,7 @@ from walkforward.config import (
 from walkforward.data.bars import BAR
 from walkforward.data.features import MODEL_INPUTS, OWN_INPUTS
 from walkforward.folds import predict_out_of_sample, within
-from walkforward.metrics import daily_rank_ic, ic_by_month
+from walkforward.metrics import bootstrap_t, daily_rank_ic, ic_by_month
 from walkforward.models import FITTERS
 
 log = logging.getLogger(__name__)
@@ -164,6 +175,32 @@ def by_coin(results: dict[tuple, pd.Series], *key) -> dict[str, pd.Series]:
 def ic_by_month_table(daily: dict[tuple, pd.Series], names: list[str]) -> pd.DataFrame:
     by_month = {key: ic_by_month(series) for key, series in daily.items()}
     return pd.concat(by_month, names=names).rename("ic").reset_index()
+
+
+def strategy_stats(daily: pd.DataFrame) -> dict[str, float]:
+    low, high = sharpe_interval(daily["net"])
+    return {
+        "gross_bps_day": daily["gross"].mean() * 1e4,
+        "gross_t": bootstrap_t(daily["gross"]),
+        "net_bps_day": daily["net"].mean() * 1e4,
+        "sharpe": sharpe(daily["net"]),
+        "sharpe_low": low,
+        "sharpe_high": high,
+        "max_drawdown": max_drawdown(daily["net"]),
+        "turnover_day": daily["turnover"].mean(),
+        "breakeven_bps": breakeven_fee_bps(daily),
+    }
+
+
+def pnl_stats(pnl: pd.DataFrame, close: pd.Series) -> tuple[dict[str, float], pd.DataFrame]:
+    daily = daily_pnl(pnl[["gross", "fees", "funding", "net", "turnover"]])
+    hold = buy_and_hold(close)
+    return strategy_stats(daily) | {
+        "beta": beta_to_target(daily["net"], hold),
+        "buy_and_hold_bps_day": hold.mean() * 1e4,
+        "time_in_market": time_in_market(pnl["position"]),
+        "long_share": long_share(pnl["position"]),
+    }, daily
 
 
 def realised_sigma(coin: str, horizon: int) -> float:

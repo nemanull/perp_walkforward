@@ -15,6 +15,7 @@ uv run walkforward run audit
 uv run walkforward run horizon-sweep
 uv run walkforward run feature-sources
 uv run walkforward run retraining
+uv run walkforward run economics
 uv run pytest -q
 ```
 

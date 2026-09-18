@@ -18,7 +18,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import LogLocator, StrMethodFormatter
 
-from walkforward.config import PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
+from walkforward.config import FEES_BPS, PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
 from walkforward.data.bars import BAR
 
 log = logging.getLogger(__name__)
@@ -143,6 +143,20 @@ def frozen_recipe_rows(frame: pd.DataFrame, selection: dict) -> pd.DataFrame:
 def zero_line(ax: Axes, vertical: bool = False) -> None:
     line = ax.axvline if vertical else ax.axhline
     line(0, color=LIGHT_GREY, linewidth=0.8, zorder=1)
+
+
+def reference_line(ax: Axes, value: float, label: str) -> None:
+    ax.axhline(value, color=GREY, linestyle="--", linewidth=1, zorder=1)
+    ax.annotate(
+        label,
+        (1, value),
+        xycoords=("axes fraction", "data"),
+        xytext=(0, 3),
+        textcoords="offset points",
+        ha="right",
+        color=GREY,
+        fontsize=8,
+    )
 
 
 def date_axis(ax: Axes) -> None:
@@ -461,6 +475,79 @@ def plot_decay(table: pd.DataFrame) -> Figure:
     return figure
 
 
+def plot_breakeven(table: pd.DataFrame, choice: dict) -> Figure:
+    rows = table[(table["rule"] == choice["rule"]) & (table["fee"] == "taker")]
+    coins = rows["coin"].unique()
+    positions = np.arange(len(coins))
+    title = f"Breakeven fee per coin, {display_name(choice['rule'])} rule, research months"
+    figure, ax = single_plot(title)
+    for offset, delay, colour, label in (
+        (-0.1, 0, TEXT, "no delay"),
+        (0.1, 1, GREY, "one bar late"),
+    ):
+        values = rows[rows["delay"] == delay].set_index("coin").loc[coins, "breakeven_bps"]
+        ax.plot(positions + offset, values, "o", color=colour, label=label)
+    for fee, bps in FEES_BPS.items():
+        reference_line(ax, bps, f"{fee} {bps:g} bps")
+    zero_line(ax)
+    ax.set_xticks(positions, [display_name(coin) for coin in coins])
+    ax.set_xlim(-0.5, len(coins) - 0.5)
+    ax.set_ylabel("breakeven fee (bps per side)")
+    legend_beside(ax)
+    return figure
+
+
+def plot_equity_panels(
+    table: pd.DataFrame, title: str, lines: list[tuple[str, str | None, str, str]]
+) -> Figure:
+    """Each line is (column suffix, colour, linestyle, label); colour None takes the coin's."""
+    curves = by_day(table) * 100
+    first = lines[0][0]
+    names = [c.removesuffix(f"_{first}") for c in curves.columns if c.endswith(f"_{first}")]
+    figure, axes = small_multiples(len(names), 3, (11, 6), title, sharex=True)
+    for ax, name in zip(axes, names, strict=True):
+        for suffix, colour, linestyle, _ in lines:
+            if f"{name}_{suffix}" in curves:
+                colour = colour or COIN_COLOURS.get(name, TEXT)
+                ax.plot(curves.index, curves[f"{name}_{suffix}"], color=colour, linestyle=linestyle)
+        zero_line(ax)
+        date_axis(ax)
+        ax.set_title(display_name(name))
+    figure.supylabel("cumulative return (%)")
+    handles = [legend_line(label, colour or GREY, style) for _, colour, style, label in lines]
+    figure_legend(figure, handles)
+    return figure
+
+
+def plot_equity(table: pd.DataFrame) -> Figure:
+    lines = [
+        ("strategy", None, "-", "strategy, net\nof taker fees"),
+        ("buy_and_hold", GREY, "--", "buy and hold"),
+    ]
+    title = "Cumulative return of the frozen strategy and of buy and hold, research months"
+    return plot_equity_panels(table, title, lines)
+
+
+def plot_needed_ic(table: pd.DataFrame) -> Figure:
+    positions = np.arange(len(table))
+    figure, ax = single_plot("Research rank IC against the IC needed to pay the fee")
+    for (fee, bps), colour in zip(FEES_BPS.items(), (GREY, LIGHT_GREY), strict=True):
+        needed = table[f"needed_ic_{fee}"]
+        label = f"needed at\n{fee} {bps:g} bps"
+        ax.hlines(
+            needed, positions - 0.25, positions + 0.25, colors=colour, linewidth=2, label=label
+        )
+    ax.plot(positions, table["research_ic"], "o", color=TEXT, label="research IC")
+    zero_line(ax)
+    volatility = zip(table["coin"], table["sigma_bps"], strict=True)
+    ticks = [f"{display_name(coin)}\n{sigma:.0f} bps" for coin, sigma in volatility]
+    ax.set_xticks(positions, ticks)
+    ax.set_xlabel("coin and its realised volatility over the horizon")
+    ax.set_ylabel("rank IC")
+    legend_beside(ax)
+    return figure
+
+
 def render_audit(folder: Path) -> None:
     draw(
         folder,
@@ -517,9 +604,24 @@ def render_retraining(folder: Path) -> None:
     draw(folder, "decay.png", plot_decay, "retraining_by_month.csv")
 
 
+def render_economics(folder: Path) -> None:
+    draw(folder, "breakeven.png", plot_breakeven, "economics.csv", "economics.json")
+    draw(
+        folder,
+        "pnl_correlation.png",
+        plot_correlation,
+        "pnl_correlation.csv",
+        title="Correlation of the coins' daily net profit, frozen rule at taker fees",
+        label="correlation of daily net profit",
+    )
+    draw(folder, "equity.png", plot_equity, "equity.csv")
+    draw(folder, "needed_ic.png", plot_needed_ic, "needed_ic.csv")
+
+
 RENDERERS = {
     "audit": render_audit,
     "horizon-sweep": render_horizon_sweep,
     "feature-sources": render_feature_sources,
     "retraining": render_retraining,
+    "economics": render_economics,
 }

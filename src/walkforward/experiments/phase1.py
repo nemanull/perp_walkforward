@@ -1,5 +1,6 @@
 import logging
 import itertools
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ log = logging.getLogger(__name__)
 
 FAMILIES = tuple(models.FITTERS)
 POLICIES = ("expanding", "fixed", "rolling_3m")
+DELAYS = (0, 1)
 TOP_DECILE_EDGE = 1.755
 
 
@@ -58,6 +60,13 @@ def strategy_pnl(
     position = backtest.tranche_position(signal, horizon, delay)
     pnl = backtest.bar_pnl(position, close, config.FEES_BPS[fee], common.load_funding()[coin])
     return pnl.assign(position=position)
+
+
+def coin_strategy(
+    frame: pd.DataFrame, coin: str, horizon: int, rule: str, fee: str, delay: int, period: str
+) -> tuple[dict, pd.DataFrame]:
+    pnl = strategy_pnl(frame, coin, horizon, rule, fee, delay, period)
+    return common.pnl_stats(pnl, common.period_close(coin, period))
 
 
 def extreme_bars_table() -> pd.DataFrame:
@@ -386,9 +395,80 @@ def run_retraining() -> None:
     log.info("retraining policy %s", policy)
 
 
+def strategy_table(
+    frames: dict[str, pd.DataFrame],
+    horizon: int,
+    rules: Iterable[str],
+    delays: Iterable[int],
+    period: str,
+) -> tuple[pd.DataFrame, dict]:
+    rows, daily = [], {}
+    for coin, rule, fee, delay in itertools.product(frames, rules, config.FEES_BPS, delays):
+        stats, daily[(coin, rule, fee, delay)] = coin_strategy(
+            frames[coin], coin, horizon, rule, fee, delay, period
+        )
+        rows.append({"coin": coin, "rule": rule, "fee": fee, "delay": delay} | stats)
+    return pd.DataFrame(rows), daily
+
+
+def portfolio_table(daily: dict) -> pd.DataFrame:
+    rows = []
+    for rule, fee, delay in itertools.product(common.THRESHOLDS, config.FEES_BPS, DELAYS):
+        combined = metrics.equal_weight(common.by_coin(daily, rule, fee, delay))
+        rows.append({"rule": rule, "fee": fee, "delay": delay} | common.strategy_stats(combined))
+    return pd.DataFrame(rows)
+
+
+def choose_rule(portfolio: pd.DataFrame) -> str:
+    taker = portfolio[(portfolio["fee"] == "taker") & (portfolio["delay"] == 0)]
+    return str(taker.loc[taker["sharpe"].idxmax(), "rule"])
+
+
+def equity_table(net: dict[str, pd.Series]) -> pd.DataFrame:
+    curves = {}
+    for coin, series in net.items():
+        curves[f"{coin}_strategy"] = series.cumsum()
+        hold = backtest.buy_and_hold(common.period_close(coin, "research"))
+        curves[f"{coin}_buy_and_hold"] = hold.cumsum()
+    curves["portfolio_strategy"] = metrics.equal_weight(net).cumsum()
+    return pd.DataFrame(curves).rename_axis("day").reset_index()
+
+
+def needed_ic_table(horizon: int, research_ic: dict[str, float]) -> pd.DataFrame:
+    table = pd.DataFrame({"coin": list(config.TARGETS)})
+    table["sigma_bps"] = [common.realised_sigma(coin, horizon) * 1e4 for coin in table["coin"]]
+    for fee in config.FEES_BPS:
+        table[f"needed_ic_{fee}"] = [needed_ic(coin, horizon, fee) for coin in table["coin"]]
+    table["research_ic"] = table["coin"].map(research_ic)
+    return table
+
+
+def run_economics() -> None:
+    out = common.output_dir("economics")
+    horizon, family = frozen_recipe()
+    inputs = read_choice("feature-sources", "sources.json", "inputs")
+    policy = read_choice("retraining", "retraining.json", "policy")
+    frames = predictions_by_coin(horizon, family, inputs, policy)
+    economics, daily = strategy_table(frames, horizon, common.THRESHOLDS, DELAYS, "research")
+    portfolio = portfolio_table(daily)
+    rule = choose_rule(portfolio)
+    net = {coin: daily[(coin, rule, "taker", 0)]["net"] for coin in config.TARGETS}
+    research_ic = {coin: common.daily_ic(frame).mean() for coin, frame in frames.items()}
+
+    common.write_table(economics, out / "economics.csv")
+    common.write_table(portfolio, out / "portfolio.csv")
+    correlation = pd.DataFrame(net).corr().rename_axis("coin").reset_index()
+    common.write_table(correlation, out / "pnl_correlation.csv", digits=4)
+    common.write_table(equity_table(net), out / "equity.csv")
+    common.write_table(needed_ic_table(horizon, research_ic), out / "needed_ic.csv")
+    common.write_json(out / "economics.json", {"rule": rule})
+    log.info("threshold rule %s", rule)
+
+
 EXPERIMENTS = {
     "audit": run_audit,
     "horizon-sweep": run_horizon_sweep,
     "feature-sources": run_feature_sources,
     "retraining": run_retraining,
+    "economics": run_economics,
 }

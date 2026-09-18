@@ -53,3 +53,12 @@ PER_COIN_T = 3.2
 PAIRED_T = 2.0
 BOOTSTRAP_MEAN_BLOCK_DAYS = 5
 BOOTSTRAP_DRAWS = 10_000
+
+# chosen by E1 to E4 on the research months, read by the forward run and phase 2
+FROZEN = {
+    "horizon": 4,
+    "family": "best_feature",
+    "inputs": "all",
+    "policy": "expanding",
+    "rule": "outer10",
+}
