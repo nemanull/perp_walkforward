@@ -136,10 +136,10 @@ def predictions(
     path = DATA_DIR / "predictions" / code_tag() / name
     if path.exists():
         return pd.read_parquet(path)
-    months = PERIODS[period][0]
+    months, end = PERIODS[period]
     log.info("predicting %s H=%d %s %s %s %s", coin, horizon, family, inputs, policy, period)
     frame = predict_out_of_sample(
-        load_features(coin), horizon, FITTERS[family], INPUT_SETS[inputs], policy, months
+        load_features(coin), horizon, FITTERS[family], INPUT_SETS[inputs], policy, months, end
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(path)
