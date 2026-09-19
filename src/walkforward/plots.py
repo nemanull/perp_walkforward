@@ -216,6 +216,22 @@ def plot_scatter(
         ax.annotate(label, point, xytext=(dx, dy), textcoords="offset points", ha=ha, fontsize=8)
 
 
+def period_errorbars(
+    ax: Axes, by_period: dict[str, pd.DataFrame], value: str, se: str = "se"
+) -> None:
+    for offset, (period, rows) in zip((-0.1, 0.1), by_period.items(), strict=True):
+        ax.errorbar(
+            np.arange(len(rows)) + offset,
+            rows[value],
+            yerr=1.96 * rows[se],
+            fmt="o",
+            color=TEXT if period == "forward" else GREY,
+            label=f"{period} months",
+        )
+    zero_line(ax)
+    ax.set_xlim(-0.5, len(rows) - 0.5)
+
+
 def diagonal(ax: Axes, values: pd.DataFrame, label: str) -> None:
     low, high = values.min().min(), values.max().max()
     pad = 0.15 * (high - low)
@@ -548,6 +564,69 @@ def plot_needed_ic(table: pd.DataFrame) -> Figure:
     return figure
 
 
+def plot_forest(table: pd.DataFrame) -> Figure:
+    coins = table.set_index("coin")
+    by_period = {
+        period: coins[[f"{period}_ic", f"{period}_se"]].set_axis(["ic", "se"], axis=1)
+        for period in ("research", "forward")
+    }
+    figure, ax = single_plot("Research and forward rank IC of the frozen recipe")
+    period_errorbars(ax, by_period, "ic")
+    ax.set_xticks(range(len(coins)), [display_name(coin) for coin in coins.index])
+    ax.set_ylabel("rank IC, 1.96 se bars")
+    legend_beside(ax)
+    return figure
+
+
+def plot_context(table: pd.DataFrame) -> Figure:
+    ic, t = coin_table(table, "family", "ic"), coin_table(table, "family", "t")
+    figure, ax = single_plot("Forward rank IC by model family at the frozen horizon")
+    named = ic.rename(index=display_name, columns=display_name)
+    limit = table["ic"].abs().max()
+    image = plot_heatmap(ax, named, ic_text(ic, t), DIVERGING, -limit, limit)
+    colour_scale(figure, image, ax, "forward rank IC")
+    return figure
+
+
+def plot_shrinkage(table: pd.DataFrame) -> Figure:
+    title = "Research against forward rank IC of each coin's best configuration"
+    figure, ax = single_plot(title, (7, 5.5))
+    diagonal(ax, table[["research_ic", "forward_ic"]], "no shrinkage")
+    zero_line(ax)
+    zero_line(ax, vertical=True)
+    ax.set_xlabel("research rank IC of the coin's best configuration")
+    ax.set_ylabel("forward rank IC, same configuration")
+    configurations = zip(table["coin"], table["family"], table["horizon"], strict=True)
+    labels = [
+        f"{display_name(coin)}, {display_name(family)}, {horizon_label(horizon)}"
+        for coin, family, horizon in configurations
+    ]
+    # hand-set so that no label crosses the diagonal or the right edge
+    offsets = {"hype": (-8, 4), "doge": (-8, 4), "uni": (-8, 4), "aave": (0, -14), "trx": (6, 12)}
+    plot_scatter(ax, table["research_ic"], table["forward_ic"], table["coin"], labels, offsets)
+    return figure
+
+
+def plot_terciles(table: pd.DataFrame) -> Figure:
+    ic = coin_table(table, "tercile", "ic")
+    figure, ax = single_plot("Forward rank IC by tercile of trailing volatility")
+    limit = table["ic"].abs().max()
+    named = ic.rename(index=display_name)
+    image = plot_heatmap(ax, named, ic.map("{:.3f}".format), DIVERGING, -limit, limit)
+    ax.set_xlabel("tercile of 2-day realised volatility")
+    colour_scale(figure, image, ax, "forward rank IC")
+    return figure
+
+
+def plot_forward_equity(table: pd.DataFrame) -> Figure:
+    lines = [
+        ("taker", None, "-", "net of taker fees"),
+        ("maker", GREY, "--", "net of maker fees"),
+    ]
+    title = "Cumulative net return of the frozen strategy, forward months"
+    return plot_equity_panels(table, title, lines)
+
+
 def render_audit(folder: Path) -> None:
     draw(
         folder,
@@ -618,10 +697,19 @@ def render_economics(folder: Path) -> None:
     draw(folder, "needed_ic.png", plot_needed_ic, "needed_ic.csv")
 
 
+def render_forward(folder: Path) -> None:
+    draw(folder, "forest.png", plot_forest, "forward.csv")
+    draw(folder, "context.png", plot_context, "context.csv")
+    draw(folder, "shrinkage.png", plot_shrinkage, "shrinkage.csv")
+    draw(folder, "terciles.png", plot_terciles, "volatility_terciles.csv")
+    draw(folder, "forward_equity.png", plot_forward_equity, "equity.csv")
+
+
 RENDERERS = {
     "audit": render_audit,
     "horizon-sweep": render_horizon_sweep,
     "feature-sources": render_feature_sources,
     "retraining": render_retraining,
     "economics": render_economics,
+    "forward": render_forward,
 }

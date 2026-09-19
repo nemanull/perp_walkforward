@@ -35,6 +35,7 @@ FIGURES = {
     "feature-sources": ("sources", "gain_vs_btc", "importance"),
     "retraining": ("retraining", "decay"),
     "economics": ("breakeven", "pnl_correlation", "equity", "needed_ic"),
+    "forward": ("forest", "context", "shrinkage", "terciles", "forward_equity"),
 }
 
 
@@ -176,12 +177,42 @@ def write_economics(folder: Path, rng: np.random.Generator) -> None:
     (folder / "economics.json").write_text(json.dumps({"rule": "outer30"}))
 
 
+def write_forward(folder: Path, rng: np.random.Generator) -> None:
+    names = [*COINS, "pooled"]
+    forward = pd.DataFrame({"coin": names, "research_ic": rng.normal(0.02, 0.01, len(names))})
+    forward["research_se"] = rng.uniform(0.005, 0.01, len(names))
+    forward["forward_ic"] = forward["research_ic"] + rng.normal(-0.01, 0.01, len(names))
+    forward["forward_se"] = rng.uniform(0.01, 0.02, len(names))
+    forward["forward_t"] = forward["forward_ic"] / forward["forward_se"]
+    forward["consistent"] = forward["forward_t"] > 0
+    forward.to_csv(folder / "forward.csv", index=False)
+    context = ic_columns(rng, cross_join(coin=COINS, family=FAMILIES))
+    context.to_csv(folder / "context.csv", index=False)
+    shrinkage = pd.DataFrame(
+        {"coin": COINS, "horizon": rng.choice(HORIZONS, len(COINS)), "family": "lightgbm"}
+    )
+    shrinkage["research_ic"] = rng.normal(0.04, 0.01, len(COINS))
+    shrinkage["forward_ic"] = shrinkage["research_ic"] + rng.normal(-0.02, 0.01, len(COINS))
+    shrinkage.to_csv(folder / "shrinkage.csv", index=False)
+    terciles = cross_join(coin=COINS, tercile=("low", "middle", "high"))
+    terciles["ic"] = rng.normal(0.01, 0.02, len(terciles))
+    terciles["rows"] = 8000
+    terciles.to_csv(folder / "volatility_terciles.csv", index=False)
+    curves = pd.DataFrame({"day": pd.date_range("2026-06-01", periods=92, freq="D", tz="UTC")})
+    for fee in FEES_BPS:
+        curves[f"portfolio_{fee}"] = np.cumsum(rng.normal(1e-4, 0.004, 92))
+    for coin in COINS:
+        curves[f"{coin}_taker"] = np.cumsum(rng.normal(0, 0.008, 92))
+    curves.to_csv(folder / "equity.csv", index=False)
+
+
 WRITERS = {
     "audit": write_audit,
     "horizon-sweep": write_horizon_sweep,
     "feature-sources": write_feature_sources,
     "retraining": write_retraining,
     "economics": write_economics,
+    "forward": write_forward,
 }
 
 

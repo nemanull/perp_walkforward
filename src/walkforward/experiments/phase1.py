@@ -26,6 +26,17 @@ def frozen_recipe() -> tuple[int, str]:
     return selection["horizon"], selection["family"]
 
 
+def chosen_configuration() -> dict:
+    horizon, family = frozen_recipe()
+    return {
+        "horizon": horizon,
+        "family": family,
+        "inputs": read_choice("feature-sources", "sources.json", "inputs"),
+        "policy": read_choice("retraining", "retraining.json", "policy"),
+        "rule": read_choice("economics", "economics.json", "rule"),
+    }
+
+
 def predictions_by_coin(
     horizon: int, family: str, inputs: str, policy: str, period: str = "research"
 ) -> dict[str, pd.DataFrame]:
@@ -465,10 +476,105 @@ def run_economics() -> None:
     log.info("threshold rule %s", rule)
 
 
+def is_consistent(research: dict, forward: dict) -> bool:
+    band = 1.96 * np.hypot(research["se"], forward["se"])
+    same_sign = np.sign(research["ic"]) == np.sign(forward["ic"])
+    return bool(same_sign and abs(forward["ic"] - research["ic"]) < band)
+
+
+def forward_row(name: str, research: dict, forward: dict) -> dict:
+    return {
+        "coin": name,
+        "research_ic": research["ic"],
+        "research_se": research["se"],
+        "forward_ic": forward["ic"],
+        "forward_se": forward["se"],
+        "forward_t": forward["t"],
+        "consistent": is_consistent(research, forward),
+    }
+
+
+def forward_table(research_daily: dict, forward_daily: dict) -> pd.DataFrame:
+    research = {coin: metrics.ic_summary(daily) for coin, daily in research_daily.items()}
+    forward = {coin: metrics.ic_summary(daily) for coin, daily in forward_daily.items()}
+    research["pooled"] = metrics.pooled_ic_summary(research_daily)
+    forward["pooled"] = metrics.pooled_ic_summary(forward_daily)
+    return pd.DataFrame([forward_row(name, research[name], forward[name]) for name in research])
+
+
+def context_table(horizon: int, inputs: str, policy: str) -> pd.DataFrame:
+    rows = []
+    for coin, family in itertools.product(config.TARGETS, FAMILIES):
+        frame = common.predictions(coin, horizon, family, inputs, policy, "forward")
+        rows.append({"coin": coin, "family": family} | metrics.ic_summary(common.daily_ic(frame)))
+    return pd.DataFrame(rows)
+
+
+def shrinkage_table(best: dict) -> pd.DataFrame:
+    rows = []
+    for coin in config.TARGETS:
+        horizon, family = best[coin]["horizon"], best[coin]["family"]
+        row = {"coin": coin, "horizon": horizon, "family": family}
+        for period in common.PERIODS:
+            frame = common.predictions(coin, horizon, family, period=period)
+            row[f"{period}_ic"] = common.daily_ic(frame).mean()
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def tercile_table(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    rows = []
+    for coin, frame in frames.items():
+        products = metrics.rank_products(common.centred_signal(frame), frame["fwd_logret"])
+        volatility = common.load_features(coin).loc[products.index, "x_roll_vol_logret_576"]
+        tercile = pd.qcut(volatility, 3, labels=["low", "middle", "high"])
+        for name, group in products.groupby(tercile, observed=True):
+            rows.append({"coin": coin, "tercile": name, "ic": group.mean(), "rows": len(group)})
+    return pd.DataFrame(rows)
+
+
+def forward_audit() -> pd.DataFrame:
+    audit = bars.audit_bars({asset: bars.read_klines(asset) for asset in config.PAIRS})
+    return audit[audit["month"] >= config.FORWARD_MONTHS[0]]
+
+
+def run_forward() -> None:
+    out = common.output_dir("forward")
+    chosen = chosen_configuration()
+    if chosen != config.FROZEN:
+        raise RuntimeError(f"config.FROZEN {config.FROZEN} differs from E1 to E4: {chosen}")
+    horizon, family, inputs, policy, rule = (
+        chosen[key] for key in ("horizon", "family", "inputs", "policy", "rule")
+    )
+    research = predictions_by_coin(horizon, family, inputs, policy)
+    forward = predictions_by_coin(horizon, family, inputs, policy, "forward")
+    research_daily = {coin: common.daily_ic(frame) for coin, frame in research.items()}
+    forward_daily = {coin: common.daily_ic(frame) for coin, frame in forward.items()}
+    economics, daily = strategy_table(forward, horizon, [rule], [0], "forward")
+    portfolio = {
+        fee: metrics.equal_weight(common.by_coin(daily, rule, fee, 0)) for fee in config.FEES_BPS
+    }
+    curves = {f"portfolio_{fee}": portfolio[fee]["net"].cumsum() for fee in config.FEES_BPS}
+    curves |= {f"{coin}_taker": daily[(coin, rule, "taker", 0)]["net"].cumsum() for coin in forward}
+    selection = common.read_json(config.RESULTS_DIR / "horizon-sweep" / "selection.json")
+
+    common.write_table(forward_table(research_daily, forward_daily), out / "forward.csv")
+    common.write_table(context_table(horizon, inputs, policy), out / "context.csv")
+    common.write_table(shrinkage_table(selection["per_coin_best"]), out / "shrinkage.csv")
+    common.write_table(economics.drop(columns=["rule", "delay"]), out / "economics.csv")
+    common.write_table(tercile_table(forward), out / "volatility_terciles.csv")
+    common.write_table(pd.DataFrame(curves).rename_axis("day").reset_index(), out / "equity.csv")
+    common.write_table(forward_audit(), out / "audit.csv")
+    verdict = {fee: common.strategy_stats(combined) for fee, combined in portfolio.items()}
+    common.write_json(out / "verdict.json", verdict)
+    log.info("forward run written")
+
+
 EXPERIMENTS = {
     "audit": run_audit,
     "horizon-sweep": run_horizon_sweep,
     "feature-sources": run_feature_sources,
     "retraining": run_retraining,
     "economics": run_economics,
+    "forward": run_forward,
 }

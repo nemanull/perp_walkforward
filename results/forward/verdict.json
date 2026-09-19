@@ -1,0 +1,24 @@
+{
+  "taker": {
+    "gross_bps_day": 8.579585,
+    "gross_t": 0.737938,
+    "net_bps_day": -83.295299,
+    "sharpe": -14.59637,
+    "sharpe_low": -17.682747,
+    "sharpe_high": -12.170549,
+    "max_drawdown": 0.792074,
+    "turnover_day": 18.322826,
+    "breakeven_bps": 0.454015
+  },
+  "maker": {
+    "gross_bps_day": 8.579585,
+    "gross_t": 0.737938,
+    "net_bps_day": -28.326821,
+    "sharpe": -5.529437,
+    "sharpe_low": -9.007444,
+    "sharpe_high": -1.909031,
+    "max_drawdown": 0.325997,
+    "turnover_day": 18.322826,
+    "breakeven_bps": 0.454015
+  }
+}
