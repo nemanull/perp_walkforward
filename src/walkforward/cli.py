@@ -3,9 +3,9 @@ import logging
 
 from walkforward import config, plots
 from walkforward.data import bars, download, features
-from walkforward.experiments import phase1
+from walkforward.experiments import phase1, volatility
 
-EXPERIMENTS = phase1.EXPERIMENTS
+EXPERIMENTS = phase1.EXPERIMENTS | volatility.EXPERIMENTS
 
 
 def main() -> None:

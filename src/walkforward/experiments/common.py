@@ -62,7 +62,7 @@ def in_crash(index: pd.DatetimeIndex) -> np.ndarray:
     return within(index, utc(CRASH[0]), utc(CRASH[1]))
 
 
-@functools.cache
+@functools.lru_cache(maxsize=2)
 def load_features(coin: str) -> pd.DataFrame:
     return pd.read_parquet(DATA_DIR / "features" / f"{coin}.parquet")
 

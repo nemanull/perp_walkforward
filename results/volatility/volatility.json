@@ -1,0 +1,22 @@
+{
+  "4": {
+    "model": "lightgbm",
+    "lightgbm_minus_har": 0.011204,
+    "t": 2.072131
+  },
+  "12": {
+    "model": "har",
+    "lightgbm_minus_har": 0.00936,
+    "t": 1.225402
+  },
+  "36": {
+    "model": "har",
+    "lightgbm_minus_har": 0.008883,
+    "t": 0.741306
+  },
+  "72": {
+    "model": "har",
+    "lightgbm_minus_har": -0.005419,
+    "t": -0.291657
+  }
+}

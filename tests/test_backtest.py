@@ -100,11 +100,20 @@ def test_sharpe_interval_width():
     assert (high - low) / 2 == pytest.approx(2.3, rel=0.2)
 
 
+def test_sparse_trading_still_gets_a_sharpe_interval():
+    daily = pd.Series(0.0, index=range(92))
+    daily[[3, 20, 21, 40, 41, 70, 88]] = np.random.default_rng(SEED).normal(1e-3, 5e-4, 7)
+    low, high = sharpe_interval(daily)
+    assert np.isfinite([low, high]).all()
+    assert low < high
+
+
 def test_no_trades_gives_nan_without_warnings():
     pnl = bar_pnl(np.zeros(BARS_PER_DAY * 3), flat_close(BARS_PER_DAY * 3), 5.0, NO_FUNDING)
     daily = pnl.resample("D").sum()
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert np.isnan(sharpe(daily["net"]))
+        assert np.isnan(sharpe_interval(daily["net"])).all()
         assert np.isnan(breakeven_fee_bps(pnl))
         assert np.isnan(long_share(np.zeros(5)))

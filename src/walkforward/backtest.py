@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
@@ -60,9 +62,13 @@ def sharpe_interval(daily_net: pd.Series, level: float = 0.9) -> tuple[float, fl
         len(values), BOOTSTRAP_MEAN_BLOCK_DAYS, BOOTSTRAP_DRAWS, SEED
     )
     resampled = values[indices]
-    ratios = np.sqrt(DAYS_PER_YEAR) * resampled.mean(axis=1) / resampled.std(axis=1, ddof=1)
+    # draws without a trading day give NaN, which nanquantile skips
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratios = np.sqrt(DAYS_PER_YEAR) * resampled.mean(axis=1) / resampled.std(axis=1, ddof=1)
+    if np.isnan(ratios).all():
+        return np.nan, np.nan
     tail = (1 - level) / 2
-    low, high = np.quantile(ratios, [tail, 1 - tail])
+    low, high = np.nanquantile(ratios, [tail, 1 - tail])
     return float(low), float(high)
 
 

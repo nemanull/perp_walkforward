@@ -1,0 +1,11 @@
+{
+  "horizon": 4,
+  "rule": "outer10",
+  "volatility_model": "lightgbm",
+  "version": "gated",
+  "research_taker_sharpe": {
+    "base": -10.19892,
+    "gated": -0.969092,
+    "sized": -1.225274
+  }
+}

@@ -17,6 +17,8 @@ uv run walkforward run feature-sources
 uv run walkforward run retraining
 uv run walkforward run economics
 uv run walkforward run forward
+uv run walkforward run volatility
+uv run walkforward run volatility-strategy
 uv run pytest -q
 ```
 

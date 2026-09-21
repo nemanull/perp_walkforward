@@ -18,7 +18,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import LogLocator, StrMethodFormatter
 
-from walkforward.config import FEES_BPS, PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
+from walkforward.config import FEES_BPS, FORWARD_MONTHS, PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
 from walkforward.data.bars import BAR
 
 log = logging.getLogger(__name__)
@@ -37,6 +37,10 @@ GRID = "#e5e5e5"
 NEUTRALS = (TEXT, GREY, LIGHT_GREY)
 MARKERS = ("o", "s", "D")
 DIVERGING = LinearSegmentedColormap.from_list("diverging", ["#ec7f7e", "#f4f4f2", "#6fa6e6"])
+SEQUENTIAL = LinearSegmentedColormap.from_list("sequential", ["#f4f4f2", "#6fa6e6"])
+MODEL_NAMES = {"har": "HAR", "lightgbm": "LightGBM"}
+VERSION_STYLES = {"base": (LIGHT_GREY, "--"), "gated": (GREY, "-"), "sized": (TEXT, "-")}
+FORWARD_START = pd.Timestamp(FORWARD_MONTHS[0], tz="UTC")
 
 STYLE = {
     "figure.dpi": 150,
@@ -514,7 +518,10 @@ def plot_breakeven(table: pd.DataFrame, choice: dict) -> Figure:
 
 
 def plot_equity_panels(
-    table: pd.DataFrame, title: str, lines: list[tuple[str, str | None, str, str]]
+    table: pd.DataFrame,
+    title: str,
+    lines: list[tuple[str, str | None, str, str]],
+    boundary: pd.Timestamp | None = None,
 ) -> Figure:
     """Each line is (column suffix, colour, linestyle, label); colour None takes the coin's."""
     curves = by_day(table) * 100
@@ -526,11 +533,15 @@ def plot_equity_panels(
             if f"{name}_{suffix}" in curves:
                 colour = colour or COIN_COLOURS.get(name, TEXT)
                 ax.plot(curves.index, curves[f"{name}_{suffix}"], color=colour, linestyle=linestyle)
+        if boundary is not None:
+            ax.axvline(boundary, color=LIGHT_GREY, linewidth=0.8, zorder=1)
         zero_line(ax)
         date_axis(ax)
         ax.set_title(display_name(name))
     figure.supylabel("cumulative return (%)")
     handles = [legend_line(label, colour or GREY, style) for _, colour, style, label in lines]
+    if boundary is not None:
+        handles.append(legend_line("forward months\nstart", LIGHT_GREY))
     figure_legend(figure, handles)
     return figure
 
@@ -627,6 +638,146 @@ def plot_forward_equity(table: pd.DataFrame) -> Figure:
     return plot_equity_panels(table, title, lines)
 
 
+def plot_volatility_ic(table: pd.DataFrame) -> Figure:
+    research = table[table["period"] == "research"]
+    models = research["model"].unique()
+    title = "Rank IC and R² of the volatility forecasts, research months"
+    figure, axes = small_multiples(len(models), len(models), (9, 3.8), title, sharey=True)
+    limit = research["ic"].abs().max()
+    for ax, model in zip(axes, models, strict=True):
+        rows = research[research["model"] == model]
+        ic, r2 = coin_table(rows, "horizon", "ic"), coin_table(rows, "horizon", "oos_r2")
+        named = ic.rename(index=display_name, columns=horizon_label)
+        text = ic.map("{:.2f}".format) + "\nR² " + r2.map("{:.2f}".format)
+        image = plot_heatmap(ax, named, text, DIVERGING, -limit, limit)
+        ax.set_title(MODEL_NAMES[model])
+    colour_scale(figure, image, axes, "rank IC of ln RV")
+    figure.supxlabel("forecast horizon")
+    return figure
+
+
+def plot_lightgbm_gain(gain: pd.DataFrame) -> Figure:
+    pooled = gain[gain["coin"] == "pooled"]
+    horizons = pooled["horizon"].unique()
+    by_period = {
+        period: rows.set_index("horizon").loc[horizons]
+        for period, rows in pooled.groupby("period", sort=False)
+    }
+    figure, ax = single_plot("Pooled rank IC gain of LightGBM over HAR")
+    period_errorbars(ax, by_period, "gain")
+    ax.set_xticks(range(len(horizons)), [horizon_label(horizon) for horizon in horizons])
+    ax.set_xlabel("forecast horizon")
+    ax.set_ylabel("pooled rank IC, LightGBM minus HAR,\n1.96 se bars")
+    legend_beside(ax)
+    return figure
+
+
+def plot_gain_vs_volatility(gain: pd.DataFrame) -> Figure:
+    research = gain[(gain["period"] == "research") & (gain["coin"] != "pooled")]
+    horizons = research["horizon"].unique()
+    title = "LightGBM gain over HAR against each coin's realised volatility, research months"
+    figure, axes = small_multiples(len(horizons), len(horizons), (11, 3.6), title, sharey=True)
+    for ax, horizon in zip(axes, horizons, strict=True):
+        rows = research[research["horizon"] == horizon]
+        zero_line(ax)
+        ax.grid(True, axis="both")
+        ax.margins(x=0.3, y=0.15)
+        ax.set_title(horizon_label(horizon))
+        # hand-set where two labels would collide
+        offsets = {"doge": (-6, -4), "uni": (-6, -10)}
+        plot_scatter(ax, rows["sigma_bps"], rows["gain"], rows["coin"], offsets=offsets)
+    axes[0].set_ylabel("rank IC gain, LightGBM minus HAR")
+    figure.supxlabel("realised volatility over the horizon, June to November 2025 (bps)")
+    return figure
+
+
+def plot_volatility_by_month(table: pd.DataFrame) -> Figure:
+    models = table["model"].unique()
+    horizons = table["horizon"].unique()
+    panels = [(model, horizon) for model in models for horizon in horizons]
+    title = "Rank IC of the volatility forecasts by month"
+    figure, axes = small_multiples(
+        len(panels), len(horizons), (11, 5.5), title, sharex=True, sharey=True
+    )
+    boundary = FORWARD_START.tz_localize(None) - pd.Timedelta(days=15)
+    for ax, (model, horizon) in zip(axes, panels, strict=True):
+        rows = table[(table["model"] == model) & (table["horizon"] == horizon)]
+        by_month = coin_table(rows, "month", "ic").T
+        by_month.index = pd.to_datetime(by_month.index)
+        lines = coin_lines(ax, by_month, marker="o", markersize=3)
+        ax.axvline(boundary, color=LIGHT_GREY, linewidth=0.8, zorder=1)
+        date_axis(ax)
+        ax.set_title(f"{MODEL_NAMES[model]}, {horizon_label(horizon)}")
+    figure.supylabel("rank IC of ln RV by month, ranks over the whole period")
+    figure_legend(figure, [*lines, legend_line("forward months\nstart", LIGHT_GREY)])
+    return figure
+
+
+def plot_strategy_sharpe(strategy: pd.DataFrame, portfolio: pd.DataFrame, choice: dict) -> Figure:
+    rows = pd.concat([strategy, portfolio.assign(coin="portfolio")])
+    rows = rows[rows["fee"] == "taker"]
+    names = rows["coin"].unique()
+    positions = np.arange(len(names))
+    periods = rows["period"].unique()
+    title = "Net Sharpe ratio of the base, gated and sized strategies at taker fees"
+    figure, axes = small_multiples(len(periods), len(periods), (11, 4), title, sharey=True)
+    offsets = np.linspace(-0.2, 0.2, len(VERSION_STYLES))
+    for ax, period in zip(axes, periods, strict=True):
+        styles = zip(offsets, VERSION_STYLES.items(), MARKERS, strict=True)
+        for offset, (version, (colour, _)), marker in styles:
+            chosen = rows[(rows["period"] == period) & (rows["version"] == version)]
+            chosen = chosen.set_index("coin").loc[names]
+            low = chosen["sharpe"] - chosen["sharpe_low"]
+            high = chosen["sharpe_high"] - chosen["sharpe"]
+            label = f"{version}, chosen" if version == choice["version"] else version
+            ax.errorbar(
+                positions + offset,
+                chosen["sharpe"],
+                yerr=[low, high],
+                fmt=marker,
+                color=colour,
+                label=label,
+            )
+        zero_line(ax)
+        ax.set_xticks(positions, [display_name(name) for name in names])
+        ax.set_xlim(-0.5, len(names) - 0.5)
+        ax.set_title(f"{period} months")
+    axes[0].set_ylabel("net Sharpe ratio, 90% interval")
+    legend_beside(axes[-1])
+    return figure
+
+
+def gate_text(share: float, valid_ic: float) -> str:
+    if np.isnan(valid_ic):
+        return "no IC"
+    return "IC ≤ 0" if valid_ic <= 0 else f"{share:.0%}"
+
+
+def plot_gate_share(gate: pd.DataFrame) -> Figure:
+    fees = gate["fee"].unique()
+    title = "Share of signalled bars the gate lets through, by coin and month"
+    figure, axes = small_multiples(len(fees), 1, (11, 6), title, sharex=True)
+    for ax, fee in zip(axes, fees, strict=True):
+        rows = gate[gate["fee"] == fee]
+        share = coin_table(rows, "month", "gate_share")
+        valid_ic = coin_table(rows, "month", "valid_ic")
+        text = share.copy().astype(object)
+        for (row, column), value in np.ndenumerate(share.to_numpy(dtype=float)):
+            text.iat[row, column] = gate_text(value, valid_ic.iat[row, column])
+        image = plot_heatmap(ax, share.rename(index=display_name), text, SEQUENTIAL, 0, 1)
+        ax.set_title(f"{fee} fees, {FEES_BPS[fee]:g} bps per side")
+    colour_scale(figure, image, axes, "share of signalled bars traded")
+    return figure
+
+
+def plot_strategy_equity(table: pd.DataFrame) -> Figure:
+    lines = [
+        (version, colour, style, version) for version, (colour, style) in VERSION_STYLES.items()
+    ]
+    title = "Cumulative net return at taker fees by strategy version"
+    return plot_equity_panels(table, title, lines, FORWARD_START)
+
+
 def render_audit(folder: Path) -> None:
     draw(
         folder,
@@ -705,6 +856,20 @@ def render_forward(folder: Path) -> None:
     draw(folder, "forward_equity.png", plot_forward_equity, "equity.csv")
 
 
+def render_volatility(folder: Path) -> None:
+    draw(folder, "volatility_ic.png", plot_volatility_ic, "volatility.csv")
+    draw(folder, "lightgbm_gain.png", plot_lightgbm_gain, "gain.csv")
+    draw(folder, "gain_vs_volatility.png", plot_gain_vs_volatility, "gain.csv")
+    draw(folder, "ic_by_month.png", plot_volatility_by_month, "ic_by_month.csv")
+
+
+def render_volatility_strategy(folder: Path) -> None:
+    sources = ("strategy.csv", "portfolio.csv", "volatility-strategy.json")
+    draw(folder, "sharpe.png", plot_strategy_sharpe, *sources)
+    draw(folder, "gate.png", plot_gate_share, "gate.csv")
+    draw(folder, "equity.png", plot_strategy_equity, "equity.csv")
+
+
 RENDERERS = {
     "audit": render_audit,
     "horizon-sweep": render_horizon_sweep,
@@ -712,4 +877,6 @@ RENDERERS = {
     "retraining": render_retraining,
     "economics": render_economics,
     "forward": render_forward,
+    "volatility": render_volatility,
+    "volatility-strategy": render_volatility_strategy,
 }
