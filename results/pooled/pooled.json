@@ -1,0 +1,8 @@
+{
+  "horizon": 4,
+  "family": "ridge",
+  "inputs": "all",
+  "pooled_minus_per_coin": 0.002365,
+  "t": 0.783779,
+  "model": "per_coin"
+}

@@ -1,0 +1,10 @@
+period,month,setting
+research,2025-12,alpha=1e+06
+research,2026-01,alpha=1e+06
+research,2026-02,alpha=1e+07
+research,2026-03,alpha=1e+05
+research,2026-04,alpha=1e+04
+research,2026-05,alpha=1e+05
+forward,2026-06,alpha=1e+06
+forward,2026-07,alpha=1e+06
+forward,2026-08,alpha=1e+05

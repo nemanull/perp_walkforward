@@ -19,6 +19,7 @@ uv run walkforward run economics
 uv run walkforward run forward
 uv run walkforward run volatility
 uv run walkforward run volatility-strategy
+uv run walkforward run pooled
 uv run pytest -q
 ```
 

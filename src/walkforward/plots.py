@@ -778,6 +778,32 @@ def plot_strategy_equity(table: pd.DataFrame) -> Figure:
     return plot_equity_panels(table, title, lines, FORWARD_START)
 
 
+def plot_pooled_difference(table: pd.DataFrame) -> Figure:
+    names = table["coin"].unique()
+    by_period = {
+        period: rows.set_index("coin").loc[names]
+        for period, rows in table.groupby("period", sort=False)
+    }
+    figure, ax = single_plot("Rank IC of the pooled model minus the per-coin models")
+    period_errorbars(ax, by_period, "diff")
+    ax.set_xticks(range(len(names)), [display_name(name) for name in names])
+    ax.set_ylabel("rank IC, pooled model minus per-coin\nmodels, 1.96 se bars")
+    legend_beside(ax)
+    return figure
+
+
+def plot_difference_vs_volatility(table: pd.DataFrame) -> Figure:
+    rows = table[(table["period"] == "research") & (table["coin"] != "pooled")]
+    figure, ax = single_plot("Pooled minus per-coin rank IC against realised volatility")
+    zero_line(ax)
+    ax.grid(True, axis="both")
+    ax.margins(0.2)
+    ax.set_xlabel("realised volatility over the horizon, June to November 2025 (bps)")
+    ax.set_ylabel("rank IC, pooled model minus per-coin model")
+    plot_scatter(ax, rows["sigma_bps"], rows["diff"], rows["coin"])
+    return figure
+
+
 def render_audit(folder: Path) -> None:
     draw(
         folder,
@@ -870,6 +896,11 @@ def render_volatility_strategy(folder: Path) -> None:
     draw(folder, "equity.png", plot_strategy_equity, "equity.csv")
 
 
+def render_pooled(folder: Path) -> None:
+    draw(folder, "ic_difference.png", plot_pooled_difference, "pooled.csv")
+    draw(folder, "difference_vs_volatility.png", plot_difference_vs_volatility, "pooled.csv")
+
+
 RENDERERS = {
     "audit": render_audit,
     "horizon-sweep": render_horizon_sweep,
@@ -879,4 +910,5 @@ RENDERERS = {
     "forward": render_forward,
     "volatility": render_volatility,
     "volatility-strategy": render_volatility_strategy,
+    "pooled": render_pooled,
 }
