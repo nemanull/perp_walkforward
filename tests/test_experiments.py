@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from conftest import cross_join, day_index
 
-from walkforward.config import FEES_BPS, HORIZONS, PAIRED_T, POOLED_T, RESEARCH_MONTHS
-from walkforward.experiments.common import THRESHOLDS
-from walkforward.experiments.phase1 import (
+from src.config import FEES_BPS, HORIZONS, PAIRED_T, POOLED_T, RESEARCH_MONTHS
+from src.experiments.common import THRESHOLDS
+from src.experiments.phase1 import (
     DELAYS,
     FAMILIES,
     POLICIES,

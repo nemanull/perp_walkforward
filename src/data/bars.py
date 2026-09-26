@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from walkforward.config import DATA_DIR, FIRST_BAR, GRID_START, PAIRS, TARGETS
-from walkforward.data.download import funding_path, kline_path
+from src.config import DATA_DIR, FIRST_BAR, GRID_START, PAIRS, TARGETS
+from src.data.download import funding_path, kline_path
 
 KLINE_COLUMNS = [
     "open_time",

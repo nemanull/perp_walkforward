@@ -4,12 +4,12 @@ import pytest
 from conftest import bars_between, utc
 from scipy.stats import spearmanr
 
-from walkforward.config import GRID_START, SEED, TARGETS, TRAIN_START
-from walkforward.experiments.common import PERIODS
-from walkforward.experiments.pooled import pooled_out_of_sample, stack, standardise
-from walkforward.folds import QUANTILES, monthly_folds, predict_out_of_sample, split_fold
-from walkforward.models import LinearRule, fit_ridge
-from walkforward.plots import render
+from src.config import GRID_START, SEED, TARGETS, TRAIN_START
+from src.experiments.common import PERIODS
+from src.experiments.pooled import pooled_out_of_sample, stack, standardise
+from src.folds import QUANTILES, monthly_folds, predict_out_of_sample, split_fold
+from src.models import LinearRule, fit_ridge
+from src.plots import render
 
 INPUTS = ["x_trail_ret_12", "x_logret_1", "btc_trail_ret_12", "eth_volume_z_576"]
 MONTHS = ("2025-08", "2025-09")

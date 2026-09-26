@@ -7,11 +7,11 @@ import pytest
 from conftest import bars_between, cross_join, utc
 from scipy.signal import lfilter
 
-from walkforward.config import FEES_BPS, GRID_START, HORIZONS, SEED, TARGETS, TRAIN_START
-from walkforward.data.bars import BAR
-from walkforward.data.features import MODEL_INPUTS
-from walkforward.experiments.common import PERIODS, daily_ic
-from walkforward.experiments.volatility import (
+from src.config import FEES_BPS, GRID_START, HORIZONS, SEED, TARGETS, TRAIN_START
+from src.data.bars import BAR
+from src.data.features import MODEL_INPUTS
+from src.experiments.common import PERIODS, daily_ic
+from src.experiments.volatility import (
     HAR_INPUTS,
     HAR_WINDOWS,
     LIGHTGBM_INPUTS,
@@ -31,8 +31,8 @@ from walkforward.experiments.volatility import (
     version_pnl,
     volatility_frame,
 )
-from walkforward.folds import monthly_folds, scored_rows, split_fold
-from walkforward.plots import render
+from src.folds import monthly_folds, scored_rows, split_fold
+from src.plots import render
 
 MONTHS = ("2025-08", "2025-09")
 END = utc("2025-10-01")

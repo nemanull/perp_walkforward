@@ -9,9 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from walkforward import backtest, config, folds, metrics, models
-from walkforward.data import features
-from walkforward.experiments import common
+from src import backtest, config, folds, metrics, models
+from src.data import features
+from src.experiments import common
 
 log = logging.getLogger(__name__)
 

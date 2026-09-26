@@ -18,8 +18,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import LogLocator, StrMethodFormatter
 
-from walkforward.config import FEES_BPS, FORWARD_MONTHS, PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
-from walkforward.data.bars import BAR
+from src.config import FEES_BPS, FORWARD_MONTHS, PAIRS, PER_COIN_T, POOLED_T, RESULTS_DIR
+from src.data.bars import BAR
 
 log = logging.getLogger(__name__)
 

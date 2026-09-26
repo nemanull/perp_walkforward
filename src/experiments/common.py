@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from walkforward.backtest import (
+from src.backtest import (
     beta_to_target,
     breakeven_fee_bps,
     buy_and_hold,
@@ -19,7 +19,7 @@ from walkforward.backtest import (
     signals,
     time_in_market,
 )
-from walkforward.config import (
+from src.config import (
     CRASH,
     DATA_DIR,
     EARLY_STOPPING_ROUNDS,
@@ -35,11 +35,11 @@ from walkforward.config import (
     TARGETS,
     TRAIN_START,
 )
-from walkforward.data.bars import BAR
-from walkforward.data.features import MODEL_INPUTS, OWN_INPUTS
-from walkforward.folds import predict_out_of_sample, within
-from walkforward.metrics import bootstrap_t, daily_rank_ic, ic_by_month
-from walkforward.models import FITTERS
+from src.data.bars import BAR
+from src.data.features import MODEL_INPUTS, OWN_INPUTS
+from src.folds import predict_out_of_sample, within
+from src.metrics import bootstrap_t, daily_rank_ic, ic_by_month
+from src.models import FITTERS
 
 log = logging.getLogger(__name__)
 

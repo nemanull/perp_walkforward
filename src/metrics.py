@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
-from walkforward.config import BOOTSTRAP_DRAWS, BOOTSTRAP_MEAN_BLOCK_DAYS, SEED
+from src.config import BOOTSTRAP_DRAWS, BOOTSTRAP_MEAN_BLOCK_DAYS, SEED
 
 
 def standardised_ranks(values: pd.Series) -> pd.Series:

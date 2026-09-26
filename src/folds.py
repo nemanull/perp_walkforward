@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from walkforward.config import RESEARCH_END, RESEARCH_MONTHS, TRAIN_START
-from walkforward.data.bars import BAR
-from walkforward.models import Fitter
+from src.config import RESEARCH_END, RESEARCH_MONTHS, TRAIN_START
+from src.data.bars import BAR
+from src.models import Fitter
 
 MONTH = pd.DateOffset(months=1)
 QUANTILES = {"q10": 0.1, "q30": 0.3, "q50": 0.5, "q70": 0.7, "q90": 0.9}

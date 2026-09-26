@@ -11,8 +11,8 @@ import pandas as pd
 from scipy.stats import spearmanr
 from sklearn.base import clone
 
-from walkforward import config, folds, metrics, models
-from walkforward.experiments import common
+from src import config, folds, metrics, models
+from src.experiments import common
 
 log = logging.getLogger(__name__)
 

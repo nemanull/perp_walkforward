@@ -4,9 +4,9 @@ import pytest
 from conftest import bar_index, day_index
 from scipy.stats import rankdata, spearmanr
 
-from walkforward.config import SEED
-from walkforward.data.bars import BARS_PER_DAY
-from walkforward.metrics import (
+from src.config import SEED
+from src.data.bars import BARS_PER_DAY
+from src.metrics import (
     bootstrap_t,
     daily_rank_ic,
     decile_returns,

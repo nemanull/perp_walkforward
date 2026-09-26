@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from walkforward.config import CONTEXT, DATA_DIR, HORIZONS, TARGETS
-from walkforward.data.bars import BAR_FIELDS
+from src.config import CONTEXT, DATA_DIR, HORIZONS, TARGETS
+from src.data.bars import BAR_FIELDS
 
 log = logging.getLogger(__name__)
 

@@ -4,9 +4,9 @@ import pytest
 from scipy.signal import lfilter
 from scipy.stats import spearmanr
 
-from walkforward.config import RIDGE_ALPHAS, SEED
-from walkforward.data.features import MODEL_INPUTS
-from walkforward.models import (
+from src.config import RIDGE_ALPHAS, SEED
+from src.data.features import MODEL_INPUTS
+from src.models import (
     FITTERS,
     LinearRule,
     fit_best_feature,

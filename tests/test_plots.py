@@ -7,11 +7,11 @@ import pandas as pd
 import pytest
 from conftest import cross_join
 
-from walkforward.config import FEES_BPS, HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
-from walkforward.data.bars import BARS_PER_DAY
-from walkforward.experiments.common import THRESHOLDS
-from walkforward.experiments.phase1 import DELAYS, FAMILIES, POLICIES
-from walkforward.plots import STYLE, render
+from src.config import FEES_BPS, HORIZONS, PAIRS, RESEARCH_MONTHS, SEED, TARGETS
+from src.data.bars import BARS_PER_DAY
+from src.experiments.common import THRESHOLDS
+from src.experiments.phase1 import DELAYS, FAMILIES, POLICIES
+from src.plots import STYLE, render
 
 COINS = list(TARGETS)
 FIGURES = {

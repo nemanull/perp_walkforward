@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 from conftest import bar_index
 
-from walkforward.config import CONTEXT, HORIZONS, SEED, TARGETS
-from walkforward.data.bars import BAR_FIELDS
-from walkforward.data.features import (
+from src.config import CONTEXT, HORIZONS, SEED, TARGETS
+from src.data.bars import BAR_FIELDS
+from src.data.features import (
     EPS,
     FEATURES,
     IMPORTANCE_GROUPS,

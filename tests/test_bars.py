@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from conftest import utc
 
-from walkforward.config import FIRST_BAR, GRID_START, PAIRS, SEED, TARGETS
-from walkforward.data.bars import (
+from src.config import FIRST_BAR, GRID_START, PAIRS, SEED, TARGETS
+from src.data.bars import (
     BAR,
     BAR_FIELDS,
     BARS_PER_DAY,
@@ -18,7 +18,7 @@ from walkforward.data.bars import (
     read_funding,
     read_klines,
 )
-from walkforward.data.download import funding_path, kline_path
+from src.data.download import funding_path, kline_path
 
 
 def make_bars(start: str, periods: int, seed: int = SEED, price: float = 100.0) -> pd.DataFrame:

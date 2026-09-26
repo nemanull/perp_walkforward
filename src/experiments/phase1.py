@@ -5,9 +5,9 @@ from collections.abc import Iterable
 import numpy as np
 import pandas as pd
 
-from walkforward import backtest, config, folds, metrics, models
-from walkforward.data import bars, features
-from walkforward.experiments import common
+from src import backtest, config, folds, metrics, models
+from src.data import bars, features
+from src.experiments import common
 
 log = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from conftest import bar_index
 
-from walkforward.backtest import (
+from src.backtest import (
     bar_pnl,
     breakeven_fee_bps,
     buy_and_hold,
@@ -16,8 +16,8 @@ from walkforward.backtest import (
     signals,
     tranche_position,
 )
-from walkforward.config import SEED
-from walkforward.data.bars import BARS_PER_DAY
+from src.config import SEED
+from src.data.bars import BARS_PER_DAY
 
 NO_FUNDING = pd.Series(dtype=float)
 

@@ -9,17 +9,17 @@ The protocol is in [docs/paper.md](./docs/paper.md).
 
 ```
 uv sync
-uv run walkforward download --from 2025-05 --to 2026-08
-uv run walkforward build
-uv run walkforward run audit
-uv run walkforward run horizon-sweep
-uv run walkforward run feature-sources
-uv run walkforward run retraining
-uv run walkforward run economics
-uv run walkforward run forward
-uv run walkforward run volatility
-uv run walkforward run volatility-strategy
-uv run walkforward run pooled
+uv run main.py download --from 2025-05 --to 2026-08
+uv run main.py build
+uv run main.py run audit
+uv run main.py run horizon-sweep
+uv run main.py run feature-sources
+uv run main.py run retraining
+uv run main.py run economics
+uv run main.py run forward
+uv run main.py run volatility
+uv run main.py run volatility-strategy
+uv run main.py run pooled
 uv run pytest -q
 ```
 

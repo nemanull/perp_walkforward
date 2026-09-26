@@ -4,17 +4,17 @@ import pytest
 from conftest import bars_between, utc
 from scipy.stats import spearmanr
 
-from walkforward.config import GRID_START, HORIZONS, RESEARCH_MONTHS, SEED, TRAIN_START
-from walkforward.data.bars import BAR
-from walkforward.data.features import MODEL_INPUTS
-from walkforward.folds import (
+from src.config import GRID_START, HORIZONS, RESEARCH_MONTHS, SEED, TRAIN_START
+from src.data.bars import BAR
+from src.data.features import MODEL_INPUTS
+from src.folds import (
     QUANTILES,
     monthly_folds,
     predict_out_of_sample,
     scored_rows,
     split_fold,
 )
-from walkforward.models import LinearRule, fit_momentum, fit_ridge
+from src.models import LinearRule, fit_momentum, fit_ridge
 
 MONTHS = ("2025-08", "2025-09")
 END = utc("2025-10-01")

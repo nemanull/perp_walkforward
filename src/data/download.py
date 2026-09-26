@@ -6,7 +6,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from walkforward.config import DATA_DIR, FIRST_BAR, PAIRS, TARGETS
+from src.config import DATA_DIR, FIRST_BAR, PAIRS, TARGETS
 
 ARCHIVE = "https://data.binance.vision/data/futures/um/monthly"
 

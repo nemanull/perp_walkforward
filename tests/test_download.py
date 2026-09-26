@@ -1,6 +1,6 @@
 import pytest
 
-from walkforward.data.download import (
+from src.data.download import (
     expected_sha256,
     funding_path,
     funding_url,

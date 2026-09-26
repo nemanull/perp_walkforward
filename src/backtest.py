@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
-from walkforward.config import BOOTSTRAP_DRAWS, BOOTSTRAP_MEAN_BLOCK_DAYS, SEED
-from walkforward.metrics import stationary_bootstrap_indices
+from src.config import BOOTSTRAP_DRAWS, BOOTSTRAP_MEAN_BLOCK_DAYS, SEED
+from src.metrics import stationary_bootstrap_indices
 
 DAYS_PER_YEAR = 365
 

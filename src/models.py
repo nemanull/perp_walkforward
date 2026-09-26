@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
-from walkforward.config import (
+from src.config import (
     EARLY_STOPPING_ROUNDS,
     LIGHTGBM_PARAMS,
     RIDGE_ALPHAS,

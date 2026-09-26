@@ -2,7 +2,7 @@ import itertools
 
 import pandas as pd
 
-from walkforward.data.bars import BAR
+from src.data.bars import BAR
 
 
 def utc(text: str) -> pd.Timestamp:
