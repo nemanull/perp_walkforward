@@ -27,3 +27,4 @@ The order matters, because later experiments read the choices of earlier ones fr
 
 The download and the built data go to `data/`, which is not committed.
 `run` writes tables and figures to `results/<experiment>/`, and `plot <experiment>` redraws the figures from the tables.
+The exploration notebook reruns with `uv run --group notebook jupyter nbconvert --to notebook --execute --inplace notebooks/exploration.ipynb`.
