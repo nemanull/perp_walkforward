@@ -2,8 +2,27 @@
 
 HYPE, TRX, DOGE, UNI and AAVE on Binance USD-M perpetual futures, June 2025 to August 2026.
 
-Sections 1 to 5 describe the protocol, phase 2 included.
-Sections 6 and 7 will hold the results.
+Sections 1 to 5 describe the protocol, phase 2 included, and were written before any result on the research months was computed.
+Sections 6 and 7 come from the results.
+Notes on the code and the data are in [`design.md`](./design.md).
+
+## Abstract
+
+This study asks whether 5-minute bars of a coin, together with BTC, ETH and SOL, predict that coin's log return over the next 20 minutes to 6 hours, and whether the prediction pays for its trading costs.
+I run the same method on five Binance USD-M perpetuals, HYPE, TRX, DOGE, UNI and AAVE.
+Each coin's model is retrained at the start of every month on all earlier data and scored on that month only.
+All modelling choices are made once for all five coins on six research months, December 2025 to May 2026, and the chosen setup then runs once on June, July and August 2026.
+A second phase asks whether volatility, which is much easier to predict than direction, can make the direction strategy pay, and whether one model trained on all five coins beats five separate models.
+
+At 20 minutes four of the five coins show a short-term reversal.
+Over the research months the pooled rank IC is 0.038 with a t-statistic of 8.0, and over the forward months it is 0.029 with a t-statistic of 4.7.
+TRX shows no signal at any horizon, and beyond one hour no coin does.
+BTC, ETH and SOL add nothing, a one-input rule does as well as ridge and LightGBM, and a model trained once does as well as monthly refits.
+The edge is under one basis point per side, below even the 2 bps maker fee, so the five-coin portfolio loses money after fees in both periods.
+HYPE alone made money at maker fees in the forward months, with an interval that includes zero.
+In the second phase volatility turns out an order of magnitude easier to predict, with a pooled rank IC of 0.47 to 0.57.
+Trading only when forecast volatility makes the expected edge cover the fee cuts the loss to about zero, mostly by not trading, and the strategy still does not pay.
+One model trained on all five coins does no better than five separate ones.
 
 ## 1. Introduction
 
@@ -506,6 +525,243 @@ At $H^*$, the pooled model and the five per-coin models run over the research mo
 The output is the paired IC difference per coin and pooled, with the per-coin difference plotted against each coin's volatility.
 The per-coin models stay unless the pooled model wins with a pooled paired t-statistic of at least 2.
 Both are scored on the forward months for context.
+
+## 6. Results
+
+No decision rule in sections 1 to 5 changed once the research results came in.
+A few details only came up once the code ran on the real data, and none of them changed a choice.
+
+- E4 was going to flag a coin whose net profit disappears with a one-bar delay.
+  No configuration had a positive net profit, so section 6.5 compares gross profit instead.
+- In phase 2, a window in which every 1-bar return is exactly zero has no log realised volatility, so it gets no label, like a window with a gap.
+  This happens in 14 windows at 20 minutes and never at longer horizons.
+- The forecast $\hat\sigma_{t,H}$ is the exponential of the forecast log realised volatility, and the validation-month median of $\hat\sigma$ is the exponential of the median log forecast.
+- The IC of a month is the mean of its daily values, so it is that month's share of the period IC and not a correlation inside the month.
+  For a signal as strong as volatility it can go above 1.
+- Section 6.5 also reports a bootstrap t-statistic for each strategy's daily gross profit, which the protocol did not list.
+
+### 6.1 Data
+
+The archive has all 132,066 bars for each of the eight pairs.
+The only zero-trade bars are the three halt bars of 2025-08-29, on every pair, which the build sets to missing, and no price seam appears.
+From the start of the data to the end of the research period, 288 bars moved more than ten trailing standard deviations, between 17 for HYPE and 48 for DOGE.
+
+Without the two crash days, each coin's 5-minute return correlates with BTC's in the same bar at 0.48 for TRX up to 0.74 for DOGE.
+At every other lag from minus 6 to plus 6 bars the correlation stays within 0.03 of zero, and with BTC one bar ahead it lies between -0.020 and 0.010.
+BTC does not lead these coins at 5 minutes, which matches Kurihara and Matsumoto (2026) at 1 minute.
+The figures are in [`results/audit/`](../results/audit/).
+
+### 6.2 Horizon and model sweep
+
+Pooled over the five coins, the research months give this IC and t-statistic per recipe.
+
+| Horizon | momentum | best_feature | ridge | lightgbm |
+| --- | ---: | ---: | ---: | ---: |
+| 20 minutes | 0.042 (8.8) | 0.038 (8.0) | 0.029 (6.1) | 0.029 (7.4) |
+| 1 hour | 0.025 (4.1) | 0.009 (1.3) | 0.017 (2.7) | 0.003 (0.4) |
+| 3 hours | 0.000 (0.0) | 0.004 (0.4) | 0.000 (0.0) | -0.005 (-0.5) |
+| 6 hours | 0.007 (0.5) | 0.006 (0.6) | -0.008 (-0.7) | -0.007 (-0.5) |
+
+Five recipes pass the pooled bar of 3: all four families at 20 minutes and momentum at 1 hour.
+Among them the 20-minute best-feature rule has the highest pooled breakeven fee, 0.76 bps per side, so it is the frozen recipe.
+The others range from 0.40 to 0.69 bps.
+The correlation between the coins' daily values is 0.23, so pooling shrank the standard error by a factor of about 0.62.
+
+![IC by coin and horizon](../results/horizon-sweep/ic_heatmap.png)
+
+Per coin, UNI, DOGE and AAVE carry the signal at 20 minutes under the frozen recipe, with ICs of 0.046 to 0.067 and t-statistics of 6 to 9.
+HYPE is weaker, at 0.022, and at 0.021 to 0.031 across the four families.
+TRX has no configuration above a t-statistic of 1.0 at any horizon.
+Fifteen of the 80 configurations pass the per-coin bar of 3.2, 13 of them at 20 minutes, and the unrounded bound of 3.23 passes the same 15.
+
+The one-input rules show what the signal is.
+For DOGE and UNI the best-feature rule picks the coin's own 20-minute return in every research month, and for AAVE in four of six.
+The momentum rule's fitted slope is negative for HYPE, DOGE, UNI and AAVE in every month, so the bet is that the last 20-minute move partly reverses.
+That is the intraday reversal Wen, Bouri, Xu and Zhao (2022) found in older crypto data.
+For TRX the chosen input switches once, from a taker-flow average to the beta to SOL in February 2026, and the momentum slope changes sign.
+
+The simple rules also hold up against the fitted models.
+At 20 minutes the pooled IC is 0.042 for momentum against 0.029 for both ridge and LightGBM, and inside each month ridge and LightGBM predictions agree with a Spearman correlation of only 0.29 to 0.63.
+At 20 minutes the hit rates run from 49 to 53 percent, or 51 to 53 percent without TRX, and the out-of-sample R² from -0.0005 to 0.0027.
+
+![Detectability against the fee](../results/horizon-sweep/detectability.png)
+
+At 20 minutes the pooled IC of 0.042 is above the one-coin line of 0.026 at $t = 3$ but less than half of every coin's taker breakeven IC, which runs from 0.088 for HYPE to 0.275 for TRX.
+At 3 and 6 hours the taker IC needed is 0.020 to 0.091, and no pooled IC there is above 0.007.
+
+### 6.3 Feature sources
+
+The frozen family is a rule, so E2 compared ridge on all 75 inputs with ridge on each coin's own 16.
+
+| Coin | IC, all inputs | IC, own inputs | Gain from BTC, ETH, SOL | t | Correlation with BTC |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| HYPE | 0.031 | 0.033 | -0.002 | -0.8 | 0.65 |
+| TRX | -0.017 | -0.014 | -0.003 | -0.3 | 0.51 |
+| DOGE | 0.036 | 0.055 | -0.019 | -2.9 | 0.76 |
+| UNI | 0.055 | 0.059 | -0.004 | -0.8 | 0.62 |
+| AAVE | 0.038 | 0.038 | -0.000 | -0.0 | 0.76 |
+
+The context inputs did not help any coin.
+For DOGE they lowered the IC by 0.019 with a t-statistic of -2.9, short of the per-coin bar of 3.2.
+The pooled advantage of own inputs is 0.0055 with a t-statistic of 1.57, below the bar of 2, so all inputs stay, as the protocol's default says.
+With no coin gaining, there is no relation to the correlation with BTC to describe.
+
+Permutation importance credits the BTC group for UNI and AAVE.
+That group holds the coin-minus-BTC returns, which carry the coin's own recent move, so the credit does not contradict the comparison above.
+
+### 6.4 Retraining
+
+| Coin | Expanding | Never refit | Rolling 3 months |
+| --- | ---: | ---: | ---: |
+| HYPE | 0.022 | 0.024 | 0.018 |
+| TRX | -0.003 | -0.013 | 0.017 |
+| DOGE | 0.067 | 0.067 | 0.062 |
+| UNI | 0.057 | 0.059 | 0.046 |
+| AAVE | 0.046 | 0.050 | 0.033 |
+
+The model trained once on June to November 2025 scores the same as the monthly refit, with a pooled paired t-statistic of -0.16, and the rolling window does slightly worse, at -0.93.
+The expanding window stays.
+For DOGE, UNI and AAVE the expanding and never-refit ICs rise and fall together month by month, with correlations of 0.98 to 0.99.
+For HYPE and TRX the two correlate at 0.31 and -0.28.
+For DOGE all three peak in February 2026, the month of the forced-deleveraging crash, at 0.116 to 0.117.
+By the rule of E3 the market changed and the model did not age, which is what I would expect from a one-input reversal rule with little to forget.
+
+### 6.5 Economics
+
+The table shows the five-coin portfolio of the frozen recipe with no delay over the research months.
+
+| Rule | Gross, bps a day | Net at taker | Net at maker | Sharpe at maker, 90% interval | Turnover a day | Breakeven, bps per side |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| median | 41.9 | -232.3 | -67.8 | -6.9 (-9.4 to -4.7) | 54.8 | 0.76 |
+| outer 30 percent | 30.3 | -184.6 | -55.6 | -6.3 (-9.0 to -4.0) | 43.0 | 0.71 |
+| outer 10 percent | 12.1 | -69.9 | -20.7 | -3.1 (-5.5 to -0.8) | 16.4 | 0.74 |
+
+In the research months no configuration earns money after fees, for any coin, rule, fee level or delay.
+The frozen rule is the outer 10 percent, the least negative at taker fees with a Sharpe ratio of -10.2.
+Per coin its breakeven fee is 0.46 bps for HYPE and AAVE, 0.69 for UNI, 0.76 for TRX and 1.22 for DOGE, all below the 2 bps maker fee and far below the 5 bps taker fee.
+The median rule shows the problem with a 20-minute signal, since it turns over 55 times its notional a day.
+
+The normal approximation of section 4.7 was optimistic.
+For the four coins with a signal it implied a breakeven of 1.2 to 3.1 bps per side, while the measured values are 22 to 40 percent of that.
+Fat tails inflate $\sigma_H$ without adding edge, and a rank IC weighs ordinary bars, while profit is made on the size of the move.
+
+With a one-bar delay, HYPE's gross profit falls from 5.9 to -2.2 bps a day, so HYPE is flagged for bid-ask bounce.
+DOGE keeps 85 percent of its gross profit, UNI 53 percent, and AAVE's rises.
+The check carries little weight, because no coin's gross profit reaches a t-statistic of 2, with values from 0.3 for HYPE to 1.7 for DOGE.
+Pooled over the five coins, gross profit passes the bar of 3 only under the median rule, with a t-statistic of 3.2, against 1.3 under the frozen rule.
+The book is close to market-neutral, with a beta to the coin between -0.14 and 0.04 and a long share between 0.46 and 0.63.
+The daily profits of the close pair, DOGE and AAVE, correlate at 0.59, the highest of any pair, while TRX's correlate with the other four at -0.06 to 0.01.
+
+### 6.6 Forward run
+
+| Coin | Research IC | Forward IC | Forward t | Consistent |
+| --- | ---: | ---: | ---: | --- |
+| HYPE | 0.022 | 0.044 | 4.5 | yes |
+| TRX | -0.003 | 0.005 | 0.4 | no |
+| DOGE | 0.067 | 0.037 | 3.4 | no |
+| UNI | 0.057 | 0.026 | 2.7 | no |
+| AAVE | 0.046 | 0.034 | 3.5 | yes |
+| pooled | 0.038 | 0.029 | 4.7 | yes |
+
+![Research against forward IC](../results/forward/forest.png)
+
+The signal held in the three fresh months.
+The pooled IC fell from 0.038 to 0.029 and stayed inside the prediction interval, so the research result counts as consistent.
+HYPE's IC rose from 0.022 to 0.044 and AAVE's moved from 0.046 to 0.034, and both changes are inside the interval.
+DOGE and UNI, the two strongest research coins, shrank by more than the interval allows but stayed positive with t-statistics of 3.4 and 2.7.
+That is the shrinkage the selection predicted, and each coin's own best research configuration lost about a quarter of its IC on average, from 0.042 to 0.032.
+TRX stayed at zero.
+
+The other families at 20 minutes were positive in the forward months for HYPE, DOGE, UNI and AAVE.
+TRX's LightGBM reached an IC of 0.030 with a t-statistic of 3.1.
+That is one forward check on a coin with no research signal, so I treat it as noise.
+Split by volatility tercile, HYPE's forward IC was 0.028, 0.044 and 0.062 from low to high, and the other coins showed no clear pattern.
+The split is descriptive and has no test.
+
+The portfolio lost 83 bps a day at taker fees, with a Sharpe ratio of -14.6 and an interval from -17.7 to -12.2, and 28 bps a day at maker fees, with -5.5 and an interval from -9.0 to -1.9.
+Its breakeven fee was 0.45 bps per side.
+HYPE alone made 24 bps a day at maker fees, with a Sharpe ratio of 2.7 and a breakeven of 3.8 bps, but its interval runs from -0.2 to 6.0, and it is one coin out of five over one quarter, so I do not read anything into it.
+
+### 6.7 Volatility forecasts
+
+Volatility is an order of magnitude easier to forecast than direction.
+
+| Horizon | HAR, research | LightGBM, research | LightGBM minus HAR (t) | HAR, forward | LightGBM, forward |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 20 minutes | 0.474 | 0.485 | 0.011 (2.07) | 0.539 | 0.559 |
+| 1 hour | 0.555 | 0.564 | 0.009 (1.23) | 0.627 | 0.649 |
+| 3 hours | 0.565 | 0.574 | 0.009 (0.74) | 0.648 | 0.655 |
+| 6 hours | 0.545 | 0.540 | -0.005 (-0.29) | 0.643 | 0.621 |
+
+The table gives the pooled rank IC of the forecast log realised volatility.
+Every research value has a t-statistic between 10.7 and 15.4, against a best direction IC of 0.042.
+Per coin and horizon the research IC runs from 0.38 for TRX at 20 minutes to 0.67 for HYPE at 6 hours, and the out-of-sample R² against the training mean from 0.28 to 0.63.
+
+The three-input HAR model nearly matches LightGBM on 76 inputs.
+LightGBM's gain clears the bar of 2 only at 20 minutes, with a t-statistic of 2.07, so it is the volatility model of the strategy at the frozen horizon, and HAR stays at the other horizons.
+The win is marginal, and the bar of 2 is a rule for choosing between the two models and not a detection threshold.
+The gain does not grow with a coin's volatility: AAVE gains the most at every horizon, and HYPE, the most predictable coin, loses at 6 hours.
+
+### 6.8 Volatility-aware strategy
+
+The frozen 20-minute strategy ran in three versions on the five-coin portfolio, with net profit in bps a day and the Sharpe ratio with its 90 percent interval.
+
+| Version | Research, taker | Research, maker | Forward, taker | Forward, maker |
+| --- | --- | --- | --- | --- |
+| base | -69.9, -10.2 (-12.7 to -8.1) | -20.7, -3.1 (-5.5 to -0.8) | -83.3, -14.6 (-17.7 to -12.2) | -28.3, -5.5 (-9.0 to -1.9) |
+| gated | -1.9, -1.0 (-3.1 to 1.1) | -9.1, -1.9 (-4.0 to 0.1) | 1.8, 3.2 (-0.4 to 4.9) | -5.0, -2.0 (-4.9 to 2.1) |
+| sized | -0.8, -1.2 (-3.3 to 1.0) | -6.9, -2.7 (-4.8 to -0.5) | 0.3, 3.1 (-0.8 to 4.8) | -3.1, -3.3 (-6.0 to 0.2) |
+
+The gate cuts the research taker loss from 69.9 to 1.9 bps a day, mostly by trading rarely.
+At taker fees it let through 0 to 8.5 percent of the signalled bars in research and almost none in the forward months.
+It shut December 2025 for HYPE, DOGE, UNI and AAVE, whose validation IC was not positive.
+TRX never traded, because its forecast volatility of about 10 bps times its IC never covers even a maker round trip.
+The gated version has the highest research Sharpe ratio at taker fees, so it is the phase 2 strategy, but the ratio is -0.97 and its interval includes zero.
+The forward taker results rest on 7 trading days out of 92, so their positive Sharpe ratios are not evidence of anything.
+
+### 6.9 Pooled model
+
+Ridge trained on the stacked rows of all five coins, each standardised by its own fitting rows, reached a pooled research IC of 0.0311 at 20 minutes, against 0.0287 for the five per-coin models.
+The difference of 0.0024 has a t-statistic of 0.78, so the per-coin models stay.
+In the forward months the pooled model was slightly worse, 0.0282 against 0.0310, with a t-statistic of -1.02.
+No coin's difference reaches a t-statistic of 2 in either period, and the differences show no pattern with volatility.
+
+## 7. Discussion and limitations
+
+On the five questions, HYPE's, DOGE's, UNI's and AAVE's returns are predictable out of sample at 20 minutes.
+At 1 hour only the pooled momentum rule and UNI clear their bars, and beyond 1 hour nothing does.
+BTC, ETH and SOL add nothing, a nonlinear model does not beat a one-input rule, and a model trained once does not decay over six months.
+No configuration earns more than its fees in the research months, and in the forward months only HYPE at maker fees did, with an interval that includes zero.
+
+On the cross-coin questions, TRX, the calmest coin, needed an IC of 0.275 to pay the taker fee at 20 minutes, and its research IC was -0.003.
+No coin gained from BTC information, whatever its correlation with BTC.
+HYPE's gross profit turns negative with a one-bar delay, while the other three coins keep 53 to 143 percent of theirs.
+But no coin's gross profit reaches a t-statistic of 2, so the data cannot say whether thin trading explains any of the signal.
+
+The signal is a short-term reversal, the move a market maker earns when takers push the price and it partly comes back.
+A retail account captures it only by paying the fee on every trade, and at under 1 bp of edge per side that costs more than the reversal returns.
+Only a lower fee, such as the maker rebate paid to market makers, would change that.
+
+Volatility is easy to forecast, with an IC more than ten times the direction IC, but the forecast has no sign, so in E7 it could only skip or resize the direction trades.
+Gating by forecast volatility mostly stopped the trading.
+The pooled model's IC differed from the per-coin models' by 0.0024 in research and -0.0028 in the forward months, with t-statistics of 0.78 and -1.02.
+
+The main limitations are these.
+
+- The study covers one venue, five coins and about 15 months.
+  The coins were chosen by type, not at random, and HYPE was chosen after it became a large coin, which is a selection effect.
+- Two of the coins move closely together, DOGE and AAVE at 0.84, so the five coins carry less independent evidence than five unrelated coins would.
+  Their strategies' daily profits correlate at 0.59.
+- The thinnest coin, TRX, traded a median of 113 million USDT a day from June to November 2025 and 54 million in the research months, so the question about thin trading covers a narrow range.
+- The cross-coin charts have five points each, too few to test a relation.
+- The frozen threshold rule is the least negative of three negative rules, so its choice says little.
+- The normal approximation of section 4.7 overstated the edge by a factor of about 2.5 to 4.6, so it should be read as an upper bound.
+- Positions fill at the bar close.
+  A maker order may not fill, and the fills it gets are the adverse ones, so the maker scenario is an upper bound.
+- There is no order book.
+  Spread and market impact are not modelled beyond the fee.
+- The research and forward periods are consecutive, so a regime that spans both is never tested against a different one.
+- The forward months were already in the past when I wrote the protocol, and nothing but the protocol kept them out of the research.
 
 ## References
 
