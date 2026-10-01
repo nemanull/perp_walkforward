@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import utc
 
 from src.config import FIRST_BAR, GRID_START, PAIRS, SEED, TARGETS
 from src.data.bars import (
@@ -19,6 +18,7 @@ from src.data.bars import (
     read_klines,
 )
 from src.data.download import funding_path, kline_path
+from src.experiments.common import utc
 
 
 def make_bars(start: str, periods: int, seed: int = SEED, price: float = 100.0) -> pd.DataFrame:

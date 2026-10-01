@@ -61,7 +61,6 @@ def download_month(url: str, path: Path, force: bool = False) -> None:
             log.warning("not published %s", url)
             return
         raise
-    # every zip has a .CHECKSUM file next to it with its sha256
     if hashlib.sha256(archive).hexdigest() != expected_sha256(fetch(url + ".CHECKSUM").decode()):
         raise ValueError(f"checksum mismatch for {url}")
     with zipfile.ZipFile(io.BytesIO(archive)) as zipped:

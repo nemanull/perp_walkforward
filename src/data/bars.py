@@ -75,7 +75,6 @@ def drop_halts(bars: pd.DataFrame) -> pd.DataFrame:
 
 
 def align_on_grid(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    # the grid ends where the shortest pair ends
     end = min(bars.index.max() for bars in frames.values())
     grid = pd.date_range(pd.Timestamp(GRID_START, tz="UTC"), end, freq=BAR, name="open_time")
     aligned = [

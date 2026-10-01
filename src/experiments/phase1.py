@@ -131,7 +131,6 @@ def daily_volatility_table(returns: pd.DataFrame) -> pd.DataFrame:
 
 def run_audit() -> None:
     out = common.output_dir("audit")
-    # research rows only
     end = common.utc(config.RESEARCH_END) - bars.BAR
     frames = {asset: bars.read_klines(asset).loc[:end] for asset in config.PAIRS}
     seams = bars.find_seams(frames)
@@ -256,7 +255,6 @@ def run_horizon_sweep() -> None:
     )
     configurations["detected"] = configurations["t"] >= config.PER_COIN_T
     pooled = pooled_table(configurations, daily)
-    print(pooled.round(3).to_string())
     chosen = choose_recipe(pooled)
     horizon, family = int(chosen["horizon"]), str(chosen["family"])
     recipe_daily = pd.DataFrame({coin: daily[(coin, horizon, family)] for coin in config.TARGETS})

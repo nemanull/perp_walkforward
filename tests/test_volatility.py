@@ -4,13 +4,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import bars_between, cross_join, utc
+from conftest import bars_between, cross_join
 from scipy.signal import lfilter
 
 from src.config import FEES_BPS, GRID_START, HORIZONS, SEED, TARGETS, TRAIN_START
 from src.data.bars import BAR
 from src.data.features import MODEL_INPUTS
-from src.experiments.common import PERIODS, daily_ic
+from src.experiments.common import PERIODS, daily_ic, utc
 from src.experiments.volatility import (
     HAR_INPUTS,
     HAR_WINDOWS,

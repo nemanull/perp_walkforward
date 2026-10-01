@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import bars_between, utc
+from conftest import bars_between
 from scipy.stats import spearmanr
 
 from src.config import GRID_START, SEED, TARGETS, TRAIN_START
-from src.experiments.common import PERIODS
+from src.experiments.common import PERIODS, utc
 from src.experiments.pooled import pooled_out_of_sample, stack, standardise
 from src.folds import QUANTILES, monthly_folds, predict_out_of_sample, split_fold
 from src.models import LinearRule, fit_ridge

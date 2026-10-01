@@ -63,6 +63,7 @@ Seeds are fixed and `uv.lock` pins every version.
 Predictions are cached in `data/predictions/<tag>/`, where the tag is a hash of `folds.py`, `models.py`, `data/features.py` and the model settings, and the phase 2 caches also hash `volatility.py` or `pooled.py`.
 A change anywhere else, for example to `experiments/common.py`, to the periods in `config.py` or to the built data, leaves the tag alone, so the cache has to be deleted by hand after such a change.
 A full run from the raw archive takes about 40 minutes on a 20-core machine, most of it in the horizon sweep and the volatility models.
+CI runs ruff and pytest on every push.
 
 ## What I decided against
 

@@ -13,6 +13,12 @@ dependencies = [
     "scipy>=1.17.0",
 ]
 
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
@@ -20,6 +26,7 @@ pythonpath = ["."]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.16.9",
 ]
 notebook = [
     "ipykernel>=7.3.0",

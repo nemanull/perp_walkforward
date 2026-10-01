@@ -58,7 +58,6 @@ STYLE = {
     "ytick.labelsize": 8,
     "legend.frameon": False,
     "legend.fontsize": 8,
-    # "savefig.bbox": "tight",
 }
 
 

@@ -52,10 +52,6 @@ def bootstrap_t(daily: pd.Series) -> float:
     return float(daily.mean() / se) if se > 0 else float("nan")
 
 
-def naive_t(daily: pd.Series) -> float:
-    return float(daily.mean() / daily.std() * math.sqrt(len(daily)))
-
-
 def ic_summary(daily: pd.Series) -> dict[str, float]:
     ic = float(daily.mean())
     se = stationary_bootstrap_se(daily)

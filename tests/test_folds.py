@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import bars_between, utc
+from conftest import bars_between
 from scipy.stats import spearmanr
 
 from src.config import GRID_START, HORIZONS, RESEARCH_MONTHS, SEED, TRAIN_START
 from src.data.bars import BAR
 from src.data.features import MODEL_INPUTS
+from src.experiments.common import utc
 from src.folds import (
     QUANTILES,
     monthly_folds,

@@ -132,7 +132,6 @@ def predictions(
     period: str = "research",
 ) -> pd.DataFrame:
     name = f"{coin}_{horizon}_{family}_{inputs}_{policy}_{period}.parquet"
-    # cached per code version, see code_tag
     path = DATA_DIR / "predictions" / code_tag() / name
     if path.exists():
         return pd.read_parquet(path)
