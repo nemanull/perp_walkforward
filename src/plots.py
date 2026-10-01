@@ -1,8 +1,8 @@
 import json
 import logging
+import math
 from collections.abc import Callable
 from pathlib import Path
-import math
 
 import matplotlib as mpl
 import numpy as np
@@ -299,7 +299,9 @@ def plot_autocorrelation(table: pd.DataFrame) -> Figure:
     }
     positions = np.arange(len(table))
     figure, ax = single_plot("Lag-1 autocorrelation of 5-minute returns, June to November 2025")
-    for offset, (column, label), colour in zip((-0.24, 0, 0.24), measures.items(), NEUTRALS):
+    for offset, (column, label), colour in zip(
+        (-0.24, 0, 0.24), measures.items(), NEUTRALS, strict=True
+    ):
         ax.bar(positions + offset, table[column], width=0.2, color=colour, label=label)
     zero_line(ax)
     ax.set_xticks(positions, table["asset"].map(display_name))

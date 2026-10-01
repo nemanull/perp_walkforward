@@ -45,7 +45,7 @@ def refit_model(model: Any, rows: pd.DataFrame, inputs: list[str], label: str) -
 
 def thresholds(model: Any, rows: pd.DataFrame, inputs: list[str]) -> dict[str, float]:
     levels = np.quantile(model.predict(rows[inputs]), list(folds.QUANTILES.values()))
-    return dict(zip(folds.QUANTILES, levels))
+    return dict(zip(folds.QUANTILES, levels, strict=True))
 
 
 def pooled_fold(

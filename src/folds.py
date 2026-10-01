@@ -110,7 +110,7 @@ def fit_window(
     model, valid_pred, setting = fitter(rows.train, rows.valid, inputs, f"y_{horizon}", horizon)
     levels = np.quantile(model.predict(rows.threshold[inputs]), list(QUANTILES.values()))
     valid_ic = spearmanr(valid_pred, rows.valid[f"fwd_logret_{horizon}"]).statistic
-    return model, dict(zip(QUANTILES, levels)), float(valid_ic), setting
+    return model, dict(zip(QUANTILES, levels, strict=True)), float(valid_ic), setting
 
 
 def predict_out_of_sample(
