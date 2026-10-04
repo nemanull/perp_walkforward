@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "Monthly walk-forward evaluation of short-horizon return models on five Binance perpetuals"
 requires-python = ">=3.13"
 dependencies = [
-    "lightgbm>=4.6.0",
+    "lightgbm>=4.7.0",
     "matplotlib>=3.11.2",
-    "numpy>=2.4.2",
-    "pandas>=3.0.0",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
     "pyarrow>=25.0.1",
-    "scikit-learn>=1.8.0",
-    "scipy>=1.17.0",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
 ]
 
 [tool.ruff]
@@ -26,10 +26,10 @@ pythonpath = ["."]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.9",
+    "ruff>=0.16.10",
 ]
 notebook = [
-    "ipykernel>=7.3.0",
+    "ipykernel>=7.4.0",
     "nbconvert>=7.17.1",
     "nbformat>=5.11.1",
 ]
