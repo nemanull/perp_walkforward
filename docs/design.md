@@ -1,7 +1,7 @@
 # Design notes
 
 How the code and the data fit together.
-The research questions, the method and the results are in [`paper.md`](./paper.md).
+The research questions, the method and the results are in [`README.md`](../README.md).
 
 ## Data
 
@@ -37,7 +37,7 @@ Before the TypeScript code was removed, both versions ran on HYPE for October to
 The target coin is always called `x`, so the same code serves all five targets and the input names are identical for every coin.
 
 `NOT_INPUTS` in `data/features.py` lists the nine per-asset columns that stay in the feature files but never reach a model, which leaves 75 inputs.
-Section 4.1 of the paper says why each was dropped, and section 4.2 defines the label.
+The method section of the README says why each was dropped and defines the label.
 
 ## Code
 
